@@ -7,49 +7,26 @@ import struct
 import datetime
 import bitstring
 
-def get_our_addr_used(host):
-    """Returns the ip address used on our side to contact host"""
-    # doesn't work for localhost! Returns 192.168.0.16 instead of 127.0.0.1
-
-    # see http://en.wikipedia.org/wiki/Discard_Protocol for why port 9
-    # see http://stackoverflow.com/questions/7334349/
-    # python-get-local-ip-address-used-to-send-ip-data-to-a-specific-remote-ip-addres
-    # for discussion of problem
-    client_ip = 'unknown'
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect((host, 9))
-    client_ip = s.getsockname()[0]
-    s.close()
-    print 'our ip:', client_ip
-    return client_ip
-
 class Torrent(object):
     class ParsingException(Exception): pass
-
     def __init__(self, filename):
         self.filename = filename
         self.initialize_from_torrent_file()
-
     def __str__(self):
         return '<Torrent Object at '+str(id(self))+'; contents: '+self.name+'>'
     def __repr__(self): return 'Torrent("'+self.filename+'")'
 
     def initialize_from_torrent_file(self):
         torrent_dict = bencode.bdecode(open(self.filename).read())
-        for k,v in torrent_dict.iteritems():
-            if k != 'info':
-                print k,':',v
         self.creation_date = datetime.datetime.fromtimestamp(torrent_dict['creation date'])
         self.announce_url = torrent_dict['announce']
         self.created_by = torrent_dict.get('created by', None)
         self.encoding = torrent_dict.get('encoding', None)
         info_dict = torrent_dict['info']
         self.info_hash = sha.new(bencode.bencode(info_dict)).digest()
-        print info_dict.keys()
         self.piece_length = info_dict['piece length']
         self.piece_hashes = [info_dict['pieces'][i:i+20] for i in range(0, len(info_dict['pieces']), 20)]
         self.private = bool(info_dict.get('private', 0))
-        print torrent_dict
         if 'files' in info_dict:
             self.mode = 'multi-file'
             self.length = sum([f['length'] for f in info_dict['files']])
@@ -125,31 +102,28 @@ class Peer(object):
     def parse_message(self):
         """If a full message exists on the buffer, pull it off and return it"""
         temp = ''.join(self.buffer)
-        print 'length of message we have to parse:', len(temp)
-        print 'message', repr(temp)
-        if len(temp) >= 49 and temp[1:20] == 'BitTorrent protocol':
-            print 'received handshake!'
-            l = temp[0]
+        print 'current buffer length:', len(temp)
+        print 'front end of buffer:', repr(temp[:30])
+        if len(temp) == 4:
+            return None
+        elif len(temp) >= 49 and temp[1:20] == 'BitTorrent protocol':
+            l = ord(temp[0])
             protocol = temp[1:20]
             reserved = temp[20:28]
             info_hash = temp[28:48]
             peer_id = temp[48:68]
-            print 'length, protocol, reserved, info_hash, peer_id'
-            print [l, protocol, reserved, info_hash, peer_id]
             self.buffer = [temp[68:]]
-            return ('handshake', reserved, info_hash, peer_id)
+            return ('handshake', protocol, reserved, info_hash, peer_id)
         elif len(temp) >= 4:
             length = struct.unpack('!I', temp[:4])[0]
-            if length == 0:
-                return ('keepalive')
-            print length
             if len(temp) < length + 4:
                 return 'incomplete message'
+
             self.buffer = [temp[length+4:]]
+            if length == 0:
+                return ('keepalive')
             msg_id = ord(temp[4])
-            print 'msg id:', msg_id
             kind = msg_dict[msg_id]
-            print 'received', kind, 'message!'
             if kind == 'have':
                 return ('have', temp[5])
             elif kind == 'bitfield':
@@ -157,9 +131,10 @@ class Peer(object):
             elif kind == 'request':
                 index, begin = struct.unpack('!II', temp[5:13])
                 return ('piece', index, begin, temp[13:length+4])
-            return kind
+            else:
+                return kind,
         else:
-            print 'received unknown or incomplete message:'
+            print 'received unknown or incomplete message, or perhaps prev parse consumed too much:'
             print repr(temp)
 
     def connect(self):
@@ -174,6 +149,8 @@ class Peer(object):
         s.connect((self.ip, self.port))
         def p(msg): print 'sending', len(msg), 'bytes:', repr(msg); s.send(msg)
         p(handshake)
+
+        # to be replaced with state machine
         p(bitfield(self.torrent.bitfield))
         p(interested())
         p(request(0, 0, 2**14))
@@ -184,11 +161,12 @@ class Peer(object):
             try:
                 data = s.recv(10000)
                 self.buffer.append(data)
-                print 'received from remote peer:', repr(data)
+                print 'received ',len(data), 'bytes of data from remote peer', repr(data[:20]), '...'
             except socket.timeout:
                 pass
             msg = self.parse_message()
-            print msg
+            if msg:
+                print 'parsed a message:', repr(msg)[:200]
             print '---'
 
 msg_dict = {
@@ -221,21 +199,25 @@ def msg(kind, *args):
     prefix = struct.pack('!I', len(message_id) + len(payload))
     return prefix + message_id + payload
 
-client = BittorrentClient()
-#t = ActiveTorrent('/Users/tomb/Desktop/test.torrent')
-#t = ActiveTorrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
-#t = ActiveTorrent('/Users/tomb/Downloads/Video Tutorial - Learn HTML and CSS in 30 Minutes. Website from scratch no extra programs ne [mininova].torrent')
-t = ActiveTorrent('/Users/tomb/Downloads/The best social Forex trading platform - follow the leaders and make a fortune [mininova].torrent')
-#t = ActiveTorrent('/Users/tomb/Desktop/test.torrent')
-print t, repr(t)
-announce_data = client.announce(t)
-print announce_data
-import random
-(ip, port) = random.choice(announce_data['peers'])
+def main():
+    client = BittorrentClient()
+    #t = ActiveTorrent('/Users/tomb/Desktop/test.torrent')
+    #t = ActiveTorrent('/Users/tomb/Desktop/test6.torrent')
+    #t = ActiveTorrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
+    #t = ActiveTorrent('/Users/tomb/Downloads/Video Tutorial - Learn HTML and CSS in 30 Minutes. Website from scratch no extra programs ne [mininova].torrent')
+    t = ActiveTorrent('/Users/tomb/Downloads/The best social Forex trading platform - follow the leaders and make a fortune [mininova].torrent')
+    #t = ActiveTorrent('/Users/tomb/Desktop/test.torrent')
+    print repr(t)
+    announce_data = client.announce(t)
+    print announce_data
+    import random
+    (ip, port) = random.choice(announce_data['peers'])
 #(ip, port) = announce_data['peers'][-1]
-client.add_peer(t, (ip, port))
+    client.add_peer(t, (ip, port))
 
-if __name__ == '__main__':
+def test():
     import doctest
     doctest.testmod(optionflags=doctest.ELLIPSIS)
 
+if __name__ == '__main__':
+    main()
