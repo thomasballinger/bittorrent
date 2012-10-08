@@ -106,7 +106,11 @@ class Msg(object):
         else:
             raise TypeError("kind must be an allowed message kind")
     def init_from_bytestring(self, bytestring):
-        raise Exception('Not Yet Implemented')
+        msg, rest = parse_message(bytestring)
+        if rest:
+            raise Exception('Bad init string')
+        #TODO pass in kwargs instead of a real Msg object
+        print msg
 
     def _get_kind(self): return self.__dict__['kind']
     def _set_kind(self, value): raise AttributeError("kind of Msg is not modifiable")
@@ -166,7 +170,7 @@ class Msg(object):
         return self.bytestring
 
 def parse_message(buff):
-    """If a full message exists in input s, pull it off and return a msg object
+    """If a full message exists in input s, pull it off and return a msg object, along with unparsed portion of the string
 
     If incomplete message, returns 'incomplete message'
     If nothing on buffer, returns None
@@ -180,7 +184,7 @@ def parse_message(buff):
         info_hash = buff[28:48]
         peer_id = buff[48:68]
         rest = [buff[68:]]
-        return ('handshake', protocol, reserved, info_hash, peer_id), rest
+        return Msg('handshake', protocol=protocol, reserved=reserved, info_hash=info_hash, peer_id=peer_id), rest
     elif len(buff) >= 4:
         length = struct.unpack('!I', buff[:4])[0]
         if len(buff) < length + 4:
@@ -189,19 +193,19 @@ def parse_message(buff):
             return 'incomplete message'
         rest = [buff[length+4:]]
         if length == 0:
-            return ('keep_alive',)
+            return Msg('keep_alive'), rest
         msg_id = ord(buff[4])
         kind = msg_dict[msg_id]
         if kind == 'bitfield':
-            return ('bitfield', buff[5:length+4])
+            return Msg('bitfield', bitfield=buff[5:length+4]), rest
         elif kind == 'piece':
             index, begin = struct.unpack('!II', buff[5:13])
-            return ('piece', index, begin, buff[13:length+4])
+            return Msg('piece', index=index, begin=begin, piece=buff[13:length+4]), rest
         elif kind == 'have':
             (index,) = struct.unpack('!I', buff[5:9])
-            return ('have', index)
+            return Msg('have', index=index), rest
         else:
-            return kind,
+            return Msg(kind), rest
     else:
         print 'received unknown or incomplete message, or perhaps prev parse consumed too much:'
         print repr(buff)
