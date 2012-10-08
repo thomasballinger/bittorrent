@@ -42,9 +42,22 @@ class ActiveTorrent(Torrent):
     """Keeps track of what's been downloaded, stores data"""
     def __init__(self, filename):
         Torrent.__init__(self, filename)
-        self.have_piece = [False] * len(self.piece_hashes)
-        self.data = [None]*self.length
+        #todo use a more efficient way to store what portions of pieces we have
+        self.have_data = bitstring.BitArray(self.length)
+
+        #todo store this stuff on disk
+        self.data = bytearray(self.length)
         self.bitfield = bitstring.BitArray(len(self.piece_hashes))
+
+    def add_data(self, index, begin, data):
+        self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(data)] = 1
+        self.data[index*self.piece_length+begin:index*self.piece_length+begin+len(data)] = data
+        print 'data added'
+        print 'file now', self.percent(), 'percent done'
+
+    def percent(self):
+        return int(self.have_data.count(1) * 1.0 / self.length * 100)
+        self.have_data
 
 class BittorrentClient(object):
     def __init__(self):
@@ -88,6 +101,7 @@ class BittorrentClient(object):
     def add_peer(self, torrent, (ip, port)):
         peer = Peer(self, torrent, (ip, port))
         self.peers.append(peer)
+        return peer
 
 class Peer(object):
     """Represents a connection to a peer regarding a specific torrent"""
@@ -97,14 +111,25 @@ class Peer(object):
         self.torrent = torrent
         self.client = client
         self.buffer = []
+        self.peer_interested = False
+        self.interested = False
+        self.choked = True
+        self.peer_choked = False
+        self.peer_bitfield = bitstring.BitArray(len(torrent.piece_hashes))
+        self.handshook = False
+        self.parsed_last_message = time.time()
         self.connect()
 
     def parse_message(self):
-        """If a full message exists on the buffer, pull it off and return it"""
+        """If a full message exists on the buffer, pull it off and return it
+
+        If incomplete message, returns 'incomplete message'
+        If nothing on buffer, returns None
+        """
         temp = ''.join(self.buffer)
         print 'current buffer length:', len(temp)
-        print 'front end of buffer:', repr(temp[:30])
-        if len(temp) == 4:
+        print 'front end of buffer:', repr(temp[:50])
+        if len(temp) == 0:
             return None
         elif len(temp) >= 49 and temp[1:20] == 'BitTorrent protocol':
             l = ord(temp[0])
@@ -117,20 +142,22 @@ class Peer(object):
         elif len(temp) >= 4:
             length = struct.unpack('!I', temp[:4])[0]
             if len(temp) < length + 4:
+                print 'returning "incomplete message"',
+                print '(looks like a', msg_dict[ord(temp[4])], 'message)'
                 return 'incomplete message'
-
             self.buffer = [temp[length+4:]]
             if length == 0:
-                return ('keepalive')
+                return ('keepalive',)
             msg_id = ord(temp[4])
             kind = msg_dict[msg_id]
-            if kind == 'have':
-                return ('have', temp[5])
-            elif kind == 'bitfield':
+            if kind == 'bitfield':
                 return ('bitfield', bitstring.BitArray(bytes=temp[5:length+4]))
-            elif kind == 'request':
+            elif kind == 'piece':
                 index, begin = struct.unpack('!II', temp[5:13])
                 return ('piece', index, begin, temp[13:length+4])
+            elif kind == 'have':
+                (index,) = struct.unpack('!I', temp[5:9])
+                return ('have', index)
             else:
                 return kind,
         else:
@@ -144,36 +171,70 @@ class Peer(object):
         handshake = ''.join([chr(pstrlen), pstr, reserved, self.torrent.info_hash, self.client.client_id])
         assert len(handshake) == 49+19
 
-        s = socket.socket()
+        self.s = socket.socket()
         print 'connecting to', self.ip, 'on port', self.port, '...'
-        s.connect((self.ip, self.port))
-        def p(msg): print 'sending', len(msg), 'bytes:', repr(msg); s.send(msg)
+        self.s.connect((self.ip, self.port))
+        def p(msg): print 'sending', len(msg), 'bytes:', repr(msg); self.s.send(msg)
         p(handshake)
+        p(bitfield(self.torrent.bitfield))
 
         # to be replaced with state machine
-        p(bitfield(self.torrent.bitfield))
         p(interested())
         p(request(0, 0, 2**14))
         print '---'
+
+    def read_socket(self):
+        data = self.s.recv(10000)
+        self.buffer.append(data)
+        print 'received ',len(data), 'bytes of data from remote peer', repr(data[:20]), '...'
+
+    def get_message(self):
         while True:
-            raw_input('hit enter to receive data and attempt to read off a message')
-            s.settimeout(.2)
-            try:
-                data = s.recv(10000)
-                self.buffer.append(data)
-                print 'received ',len(data), 'bytes of data from remote peer', repr(data[:20]), '...'
-            except socket.timeout:
-                pass
             msg = self.parse_message()
-            if msg:
-                print 'parsed a message:', repr(msg)[:200]
-            print '---'
+            if msg is None:
+                print 'nothing to read from buffer, so we\'re reading from socket'
+                self.read_socket()
+            elif msg == 'incomplete message':
+                self.read_socket()
+            else:
+                break
+        print 'parsed a message:', repr(msg)[:200]
+        self.parsed_last_message = time.time()
+        if msg[0] == 'handshake':
+            self.handshook = True
+        elif msg[0] == 'keepalive':
+            pass
+        elif msg[0] == 'bitfield':
+            self.peer_bitfield = msg[1]
+        elif msg[0] == 'unchoke':
+            self.choked = False
+        elif msg[0] == 'choke':
+            self.choked = True
+        elif msg[0] == 'interested':
+            self.peer_interested = True
+        elif msg[0] == 'not_interseted':
+            self.peer_interested = False
+        elif msg[0] == 'have':
+            index = msg[1]
+            print index
+            self.peer_bitfield[index] = 1
+            print 'know we know peer has piece'
+        elif msg[0] == 'request':
+            print 'doing nothing about peer request for peice'
+        elif msg[0] == 'piece':
+            _, index, begin, data = msg
+            print 'receiving data'
+            self.torrent.add_data(index, begin, data)
+        else:
+            print 'didn\'t correctly process', msg
+            raise Exception('missed a message')
+        return msg
 
 msg_dict = {
         0 : 'choke',
         1 : 'unchoke',
         2 : 'interested',
-        3 : 'not_intersted',
+        3 : 'not_interested',
         4 : 'have',
         5 : 'bitfield',
         6 : 'request',
@@ -201,19 +262,19 @@ def msg(kind, *args):
 
 def main():
     client = BittorrentClient()
-    #t = ActiveTorrent('/Users/tomb/Desktop/test.torrent')
-    #t = ActiveTorrent('/Users/tomb/Desktop/test6.torrent')
-    #t = ActiveTorrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
-    #t = ActiveTorrent('/Users/tomb/Downloads/Video Tutorial - Learn HTML and CSS in 30 Minutes. Website from scratch no extra programs ne [mininova].torrent')
-    t = ActiveTorrent('/Users/tomb/Downloads/The best social Forex trading platform - follow the leaders and make a fortune [mininova].torrent')
+    t = ActiveTorrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
+    t = ActiveTorrent('/Users/tomb/Downloads/Probity - THE ELECTRONiC CONNECTiON 28 [Trance-House-Progressive] [mininova].torrent')
+    #t = ActiveTorrent('/Users/tomb/Downloads/The best social Forex trading platform - follow the leaders and make a fortune [mininova].torrent')
     #t = ActiveTorrent('/Users/tomb/Desktop/test.torrent')
     print repr(t)
     announce_data = client.announce(t)
     print announce_data
-    import random
-    (ip, port) = random.choice(announce_data['peers'])
+
+    (ip, port) = (announce_data['peers'][0])
 #(ip, port) = announce_data['peers'][-1]
-    client.add_peer(t, (ip, port))
+    p = client.add_peer(t, (ip, port))
+    while True:
+        p.get_message()
 
 def test():
     import doctest
