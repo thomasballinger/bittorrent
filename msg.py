@@ -1,5 +1,44 @@
 import struct
 
+"""
+Desired api:
+
+msg.keepalive()  # acts like a keepalive message
+msg.have(1)    # acts like a have second piece message
+
+msg.Msg('\x00\x00\x00\x05\x04\x00\x00\x00\x03')
+# creates a have message
+
+msg.Msg('have', 1)
+# creats a have message
+
+msg.from_string('\x00\x00\x00\x00\x00\x00\x00\x05')
+# returns an array of messages, plus the unparsed portion of the string
+(Msg('\x00\x00\x00\x00'),), 4
+
+msg.from_stream('\x00\x00\x00\x00\x00\x00\x00\x05')
+# returns an array of messages, plus how many bytes were converted
+(Msg('\x00\x00\x00\x00'),), 4
+
+msg.from_strings(['\x00\x00\x00\x00\x00\x00', \x00\x05'])
+# returns an array of messages, plus the position of the first byte not parsed
+(Msg('\x00\x00\x00\x00'),), (1, 4)
+
+Msg.kind == 'have'
+
+Msg.kind = 'notmodifiable'
+exception of some kind; attributeError?
+# bytestrings also nonmodifiable - no wait modifiable but the Msg gets reinitialized
+
+str:
+<Have Msg: index=1>
+
+repr:
+Msg('\x00\x00\x00\x00')
+
+==: compares byte strings
+
+"""
 
 msg_dict = {
         0 : 'choke',
@@ -17,7 +56,7 @@ def choke(): return msg(0)
 def unchoke(): return msg(1)
 def interested(): return msg(2)
 def not_interested(): return msg(3)
-def have(piece_index): return msg(4, struct.pack('!I', piece_index)) #TODO zero-based index in what format?
+def have(piece_index): return msg(4, struct.pack('!I', piece_index))
 def bitfield(bitfield): return msg(5, bitfield.tobytes())
 def request(index, begin, length): return msg(6, struct.pack('!III', index, begin, length))
 """
@@ -31,8 +70,11 @@ def msg(kind, *args):
     prefix = struct.pack('!I', len(message_id) + len(payload))
     return prefix + message_id + payload
 
-def parse_message(self):
-    """If a full message exists on the buffer, pull it off and return it
+class Msg(object):
+    def __init__(self, kind=None, **kwargs):
+
+def parse_message(s):
+    """If a full message exists in input s, pull it off and return a msg object
 
     If incomplete message, returns 'incomplete message'
     If nothing on buffer, returns None
