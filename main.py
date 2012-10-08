@@ -3,7 +3,6 @@ import urllib
 import sha
 import time
 import socket
-import struct
 import datetime
 import bitstring
 
@@ -199,7 +198,6 @@ def main():
     print announce_data
 
     (ip, port) = (announce_data['peers'][0])
-#(ip, port) = announce_data['peers'][-1]
     p = client.add_peer(t, (ip, port))
     while True:
         p.get_message()
