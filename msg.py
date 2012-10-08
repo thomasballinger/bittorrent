@@ -85,6 +85,10 @@ class Msg(object):
                 raise TypeError("Specify a kind once or specify a bytestring")
             kind_or_bytestring = kwargs['kind']
             del kwargs['kind']
+        print '---'
+        print repr(kind_or_bytestring)
+        print repr(args_dict.keys())
+        print '---'
         if kind_or_bytestring in args_dict:
             self.init_from_args(kind_or_bytestring, **kwargs)
         elif len(kwargs) == 0:
@@ -101,14 +105,15 @@ class Msg(object):
         elif self.kind in args_dict:
             if set(args_dict[self.kind]) != set(kwargs.values()):
                 print 'warning: extra kwargs not being used:', set(kwargs.values()) - set(args_dict[self.kind])
-            for arg in args_dict:
+            for arg in args_dict[self.kind]:
                 setattr(self, arg, kwargs[arg])
         else:
             raise TypeError("kind must be an allowed message kind")
     def init_from_bytestring(self, bytestring):
         msg, rest = parse_message(bytestring)
         if rest:
-            raise Exception('Bad init string')
+            print rest
+            raise Exception('Bad init string; extra: '+repr(rest))
         #TODO pass in kwargs instead of a real Msg object
         print msg
 
@@ -176,14 +181,14 @@ def parse_message(buff):
     If nothing on buffer, returns None
     """
     if len(buff) == 0:
-        return None
+        return None, ''
     elif len(buff) >= 49 and buff[1:20] == 'BitTorrent protocol':
         l = ord(buff[0])
         protocol = buff[1:20]
         reserved = buff[20:28]
         info_hash = buff[28:48]
         peer_id = buff[48:68]
-        rest = [buff[68:]]
+        rest = buff[68:]
         return Msg('handshake', protocol=protocol, reserved=reserved, info_hash=info_hash, peer_id=peer_id), rest
     elif len(buff) >= 4:
         length = struct.unpack('!I', buff[:4])[0]
@@ -191,7 +196,7 @@ def parse_message(buff):
             print 'returning "incomplete message"',
             print '(looks like a', msg_dict[ord(buff[4])], 'message)'
             return 'incomplete message'
-        rest = [buff[length+4:]]
+        rest = buff[length+4:]
         if length == 0:
             return Msg('keep_alive'), rest
         msg_id = ord(buff[4])
