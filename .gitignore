@@ -4,4 +4,4 @@ lib/
 share/
 .Python
 
-.pyc
+*.pyc

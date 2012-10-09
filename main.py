@@ -4,7 +4,10 @@ import sha
 import time
 import socket
 import datetime
+
 import bitstring
+
+import msg
 
 class Torrent(object):
     """Torrent file data"""
@@ -122,22 +125,18 @@ class Peer(object):
 
 
     def connect(self):
-        pstr = "BitTorrent protocol"
-        pstrlen = len(pstr)
-        reserved = '\x00'*8
-        handshake = ''.join([chr(pstrlen), pstr, reserved, self.torrent.info_hash, self.client.client_id])
-        assert len(handshake) == 49+19
-
+        """Establishes TCP connection to peer and sends handshake"""
         self.s = socket.socket()
         print 'connecting to', self.ip, 'on port', self.port, '...'
         self.s.connect((self.ip, self.port))
-        def p(msg): print 'sending', len(msg), 'bytes:', repr(msg); self.s.send(msg)
-        p(handshake)
-        p(bitfield(self.torrent.bitfield))
+        def p(x): print 'sending', len(x), 'bytes:', repr(x); self.s.send(x)
+        print msg.handshake()
+        p(msg.handshake())
+        p(msg.bitfield(self.torrent.bitfield))
 
         # to be replaced with state machine
-        p(interested())
-        p(request(0, 0, 2**14))
+        p(msg.interested())
+        p(msg.request(0, 0, 2**14))
         print '---'
 
     def read_socket(self):
