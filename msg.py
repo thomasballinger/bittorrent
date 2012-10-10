@@ -5,32 +5,25 @@ Desired api:
 >>> import msg
 >>> str(msg.keep_alive())
 '\x00\x00\x00\x00'
-
 >>> msg.have(1)
 Msg('have', index=1)
-
 >>> msg.Msg('\x00\x00\x00\x05\x04\x00\x00\x00\x03')
 Msg('have', index=3)
-
 >>> msg.Msg('have', index=1)
 Msg('have', index=1)
 
-returns an array of messages, plus the unparsed portion of the string
+#returns an array of messages, plus the unparsed portion of the string
 >>> msg.messages_and_rest('\x00\x00\x00\x00\x00\x00\x00\x05')
 ((Msg('keep_alive'),), '\x00\x00\x00\x05')
-
->>> m = msg.Msg('have', index=1)
->>> m.kind
+>>> m = msg.Msg('have', index=1); m.kind
 'have'
 
 >>> m.kind = 'notmodifiable'
 Traceback (most recent call last):
 ...
 AttributeError: kind of Msg is not modifiable
->>> m.kind
-'have'
 
-# bytestrings also nonmodifiable - or maybe modifiable but the Msg gets reinitialized
+#TODO bytestrings also nonmodifiable - or maybe modifiable but the Msg gets reinitialized
 
 >>> m.index = 3
 >>> m.index == 3
@@ -39,15 +32,17 @@ True
 >>> m.port = 1234
 Traceback (most recent call last):
 ...
-AttributeError: Msg piece doesn't take arg port
+AttributeError: Msg piece does not take arg port
 
->>> m.port
-Traceback (most recent call last):
-...
-AttributeError: 'Msg' object has no attribute 'port'
-
->> m == '\x00\x00\x00\x05\x04\x00\x00\x00\x03'
+>>> m == '\x00\x00\x00\x05\x04\x00\x00\x00\x03'
 True
+
+>>> 'asdf'+m
+'asdf\x00\x00\x00\x05\x04\x00\x00\x00\x03'
+
+>>> m+'asdf'
+'\x00\x00\x00\x05\x04\x00\x00\x00\x03asdf'
+
 ==: compares byte strings
 """
 
@@ -96,7 +91,9 @@ class Msg(object):
     '\x00\x00\x00\r\x07\x00\x00\x00\x03\x00\x00\x00\x00asdf'
     >>> len(a)
     17
-
+    >>> m = Msg('keep_alive')
+    >>> 2*m + m[2:3] + (m + 'a') + ('a' + m) + m*2
+    '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00aa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
     """
     def __init__(self, kind_or_bytestring=None, **kwargs):
         self.__dict__['_atts_modified'] = False
@@ -148,7 +145,7 @@ class Msg(object):
     def _unchoke(self): return msg(1)
     def _interested(self): return msg(2)
     def _not_interested(self): return msg(3)
-    def _have(self): return msg(4, struct.pack('!I', self.piece_index))
+    def _have(self): return msg(4, struct.pack('!I', self.index))
     def _bitfield(self):
         try:
             s = self.bitfield.tobytes()
@@ -162,26 +159,31 @@ class Msg(object):
 
 
     # Make Msg's behave like strings in most cases
-    #def __getattr__(self, att):
-    #    if att in dir(str):
-    #        if callable(getattr(str, att)):
-    #            def func_help(*args, **kwargs):
-    #                result = getattr(self.s, att)(*args, **kwargs)
-    #                return result
-    #            return func_help
-    #        else:
-    #            return getattr(self.s, att)
-    #    elif att in args_dict[self.kind]:
-    #        return self._atts_dict[att]
+    def __getattr__(self, att):
+        #TODO find better way to make properties and getattr overloading work together
+        print 'looking for att', att
+        if att in self.__class__.__dict__ and isinstance(self.__class__.__dict__[att], property):
+            return self.__class__.__dict__[att].__set__(self)
+        elif att in dir(str):
+            if callable(getattr(str, att)):
+                def func_help(*args, **kwargs):
+                    result = getattr(self.bytestring, att)(*args, **kwargs)
+                    return result
+                return func_help
+            else:
+                return getattr(self.bytestring, att)
+        elif att in args_dict[self.kind]:
+            return self._atts_dict[att]
 
     def __setattr__(self, item, value):
+        #TODO find better way to make properties and getattr overloading work together
         if item in self.__class__.__dict__ and isinstance(self.__class__.__dict__[item], property):
             return self.__class__.__dict__[item].__set__(self, value)
         if '_kind' in self.__dict__ and item in args_dict[self.kind]:
             self._atts_modified = True
             self.__dict__[item] = value
         elif item in [arg for kind in args_dict for arg in args_dict[kind]]:
-            raise AttributeError('Msg '+kind+' doesn\'t take arg '+item)
+            raise AttributeError('Msg '+kind+' does not take arg '+item)
         else:
             self.__dict__[item] = value
 
@@ -199,9 +201,15 @@ class Msg(object):
         raise Exception("Not Yet Implemented")
     bytestring = property(_get_bytestring, _set_bytestring)
 
-    # todo try to kill this method and let it use the str one
-    def __len__(self):
-        return len(self.bytestring)
+    # todo try to kill these methods and let it use the str ones
+    def __len__(self): return len(self.bytestring)
+    def __eq__(self, other): return self.bytestring.__eq__(other)
+    def __getitem__(self, key): return self.bytestring.__getitem__(key)
+    def __iter__(self): return self.bytestring.__iter__()
+    def __add__(self, other): return self.bytestring.__add__(str(other))
+    def __radd__(self, other): return other.__add__(str(self.bytestring))
+    def __mul__(self, other): return self.bytestring.__mul__(other)
+    def __rmul__(self, other): return self.bytestring.__rmul__(other)
 
     def __repr__(self):
         s = 'Msg(\''+self.kind+'\''
