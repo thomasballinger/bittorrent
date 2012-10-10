@@ -152,6 +152,7 @@ class Peer(object):
                 self.read_socket()
             elif message == 'incomplete message':
                 print 'incomplete message, so we\'re reading from socket'
+                print 'total buffer length:', len(rest)
                 self.read_socket()
             else:
                 break
@@ -190,14 +191,14 @@ class Peer(object):
 def main():
     client = BittorrentClient()
     t = ActiveTorrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
-    t = ActiveTorrent('/Users/tomb/Downloads/Probity - THE ELECTRONiC CONNECTiON 28 [Trance-House-Progressive] [mininova].torrent')
+    #t = ActiveTorrent('/Users/tomb/Downloads/Probity - THE ELECTRONiC CONNECTiON 28 [Trance-House-Progressive] [mininova].torrent')
     #t = ActiveTorrent('/Users/tomb/Downloads/The best social Forex trading platform - follow the leaders and make a fortune [mininova].torrent')
     #t = ActiveTorrent('/Users/tomb/Desktop/test.torrent')
     print repr(t)
     announce_data = client.announce(t)
     print announce_data
 
-    (ip, port) = (announce_data['peers'][0])
+    (ip, port) = (announce_data['peers'][5])
     p = client.add_peer(t, (ip, port))
     while True:
         p.get_message()
