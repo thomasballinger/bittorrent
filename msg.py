@@ -104,8 +104,8 @@ class Msg(object):
     '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00aa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
     """
     def __init__(self, kind_or_bytestring=None, **kwargs):
-        self.__dict__['_atts_modified'] = False
-        self.__dict__['_atts_dict'] = {}
+        self._atts_modified = False
+        self._atts_dict = {}
         if 'kind' in kwargs:
             if kind_or_bytestring:
                 raise TypeError("Specify a kind once or specify a bytestring")
@@ -118,8 +118,8 @@ class Msg(object):
         else:
             raise TypeError("__init__() takes a string of bytes or kw arguments" )
     def init_from_args(self, kind, **kwargs):
-        self.__dict__['_kind'] = kind
-        self.__dict__['_atts_modified'] = True
+        self._kind = kind
+        self._atts_modified = True
         if self.kind == 'handshake':
             self.pstr = kwargs.get('pstr', 'BitTorrent Protocol')
             self.reserved = kwargs.get('reserved', '\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -196,7 +196,7 @@ class Msg(object):
         else:
             self.__dict__[item] = value
 
-    def _get_kind(self): return self.__dict__['_kind']
+    def _get_kind(self): return self._kind
     def _set_kind(self, value): raise AttributeError("kind of Msg is not modifiable")
     kind = property(_get_kind, _set_kind)
 
