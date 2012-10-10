@@ -45,9 +45,12 @@ True
 >>> msg.have(3).bytestring
 '\x00\x00\x00\x05\x04\x00\x00\x00\x03'
 
->>> m=msg.handshake(info_hash='asdf', peer_id=';lkj')
+>>> m = msg.handshake(info_hash='asdf', peer_id=';lkj')
 >>> m.kind
 'handshake'
+
+>>> m.bytestring
+'\x13BitTorrent Protocol\x00\x00\x00\x00\x00\x00\x00\x00asdf;lkj'
 """
 
 import struct
@@ -160,7 +163,7 @@ class Msg(object):
     def _cancel(self): return msg(8, struct.pack('!III', self.index, self.begin, self.length))
     def _port(self): return msg(9, struct.pack('!III', self.port))
     def _handshake(self):
-        return ''.join([ord(len(self.protocol), self.protocol, self.reserved, self.info_hash, self.peer_id)])
+        return ''.join([chr(len(self.pstr)), self.pstr, self.reserved, self.info_hash, self.peer_id])
 
     # Make Msg's behave like strings in most cases
     def __getattr__(self, att):
@@ -213,6 +216,7 @@ class Msg(object):
     def __radd__(self, other): return other.__add__(str(self.bytestring))
     def __mul__(self, other): return self.bytestring.__mul__(other)
     def __rmul__(self, other): return self.bytestring.__rmul__(other)
+    def __str__(self): return self.bytestring
 
     def __repr__(self):
         s = 'Msg(\''+self.kind+'\''
@@ -221,9 +225,6 @@ class Msg(object):
         s += ', '.join([att+'='+repr(getattr(self, att)) for att in args_dict[self.kind]])
         s += ')'
         return s
-
-    def __str__(self):
-        return self.bytestring
 
 def msg(kind, *args):
     """Returns a msg bytestring from message id and args"""
@@ -318,9 +319,9 @@ def handshake(pstr=None, reserved=None, info_hash=None, peer_id=None):
     if peer_id is None:
         raise ValueError("peer_id is required for handshake")
     kwargs = {'info_hash' : info_hash, 'peer_id' : peer_id}
-    if pstr is not None: kwargs['pstr'] = pstr
-    if reserved is not None: kwargs['reserved'] = reserved
-    x = Msg('handshake', pstr=pstr, reserved=reserved, info_hash=info_hash, peer_id=peer_id)
+    if not (pstr is None): kwargs['pstr'] = pstr
+    if not (reserved is None): kwargs['reserved'] = reserved
+    x = Msg('handshake', **kwargs)
     return x
 
 def test():
