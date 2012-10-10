@@ -1,7 +1,6 @@
 r"""Msg - Bittorrent tcp client connection messages
 
-Desired api:
-
+Examples:
 >>> import msg
 >>> str(msg.keep_alive())
 '\x00\x00\x00\x00'
@@ -49,9 +48,6 @@ True
 >>> m=msg.handshake(info_hash='asdf', peer_id=';lkj')
 >>> m.kind
 'handshake'
-
->> m.bytestring
-
 """
 
 import struct
@@ -147,7 +143,6 @@ class Msg(object):
         self._bytestring = bytestring
         #TODO pass in kwargs instead of a real Msg object
 
-
     def _keep_alive(self): return '\x00' * 4
     def _choke(self): return msg(0)
     def _unchoke(self): return msg(1)
@@ -166,7 +161,6 @@ class Msg(object):
     def _port(self): return msg(9, struct.pack('!III', self.port))
     def _handshake(self):
         return ''.join([ord(len(self.protocol), self.protocol, self.reserved, self.info_hash, self.peer_id)])
-
 
     # Make Msg's behave like strings in most cases
     def __getattr__(self, att):
@@ -263,22 +257,31 @@ def parse_message(buff):
         rest = buff[68:]
         return Msg('handshake', protocol=protocol, reserved=reserved, info_hash=info_hash, peer_id=peer_id), rest
     elif len(buff) >= 4:
-        length = struct.unpack('!I', buff[:4])[0]
-        if len(buff) < length + 4:
+        msg_length = struct.unpack('!I', buff[:4])[0]
+        if len(buff) < msg_length + 4:
             return 'incomplete message', buff
-        rest = buff[length+4:]
-        if length == 0:
+        rest = buff[msg_length+4:]
+        if msg_length == 0:
             return Msg('keep_alive'), rest
         msg_id = ord(buff[4])
         kind = msg_dict[msg_id]
+        #TODO add rest of messages
         if kind == 'bitfield':
-            return Msg('bitfield', bitfield=buff[5:length+4]), rest
+            return Msg('bitfield', bitfield=buff[5:msg_length+4]), rest
         elif kind == 'piece':
             index, begin = struct.unpack('!II', buff[5:13])
-            return Msg('piece', index=index, begin=begin, piece=buff[13:length+4]), rest
+            return Msg('piece', index=index, begin=begin, piece=buff[13:msg_length+4]), rest
         elif kind == 'have':
             (index,) = struct.unpack('!I', buff[5:9])
             return Msg('have', index=index), rest
+        elif msg_length == 1:
+            return Msg(msg_dict[msg_id])
+        elif kind in ['request', 'cancel']:
+            index, begin, length = struct.unpack('!III', buff[5:])
+            return Msg(msg_dict[msg_id], index=index, begin=begin, length=length), rest
+        elif kind == 'port':
+            (port,) = struct.unpack('!H', buff[5:7])
+            return Msg('have', port=port), rest
         else:
             return Msg(kind), rest
     else:
