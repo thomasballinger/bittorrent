@@ -5,3 +5,4 @@ share/
 .Python
 
 *.pyc
+*.swp

@@ -1,43 +1,54 @@
-"""Msg - Bittorrent tcp client connection messages
+r"""Msg - Bittorrent tcp client connection messages
 
 Desired api:
 
-msg.keep_alive()  # acts like a keepalive message
+>>> import msg
+>>> str(msg.keep_alive())
 '\x00\x00\x00\x00'
-msg.have(1)    # acts like a have second piece message
 
-msg.Msg('\x00\x00\x00\x05\x04\x00\x00\x00\x03')
-# creates a have message
+>>> msg.have(1)
+Msg('have', index=1)
 
-msg.Msg('have', 1)
-# creats a have message
+>>> msg.Msg('\x00\x00\x00\x05\x04\x00\x00\x00\x03')
+Msg('have', index=3)
 
-msg.from_string('\x00\x00\x00\x00\x00\x00\x00\x05')
-# returns an array of messages, plus the unparsed portion of the string
-(Msg('\x00\x00\x00\x00'),), 4
+>>> msg.Msg('have', index=1)
+Msg('have', index=1)
 
-msg.from_stream('\x00\x00\x00\x00\x00\x00\x00\x05')
-# returns an array of messages, plus how many bytes were converted
-(Msg('\x00\x00\x00\x00'),), 4
+returns an array of messages, plus the unparsed portion of the string
+>>> msg.messages_and_rest('\x00\x00\x00\x00\x00\x00\x00\x05')
+((Msg('keep_alive'),), '\x00\x00\x00\x05')
 
-msg.from_strings(['\x00\x00\x00\x00\x00\x00', \x00\x05'])
-# returns an array of messages, plus the position of the first byte not parsed
-(Msg('\x00\x00\x00\x00'),), (1, 4)
+>>> m = msg.Msg('have', index=1)
+>>> m.kind
+'have'
 
-Msg.kind == 'have'
+>>> m.kind = 'notmodifiable'
+Traceback (most recent call last):
+...
+AttributeError: kind of Msg is not modifiable
+>>> m.kind
+'have'
 
-Msg.kind = 'notmodifiable'
-exception of some kind; attributeError?
-# bytestrings also nonmodifiable - no wait modifiable but the Msg gets reinitialized
+# bytestrings also nonmodifiable - or maybe modifiable but the Msg gets reinitialized
 
-str:
-<Have Msg: index=1>
+>>> m.index = 3
+>>> m.index == 3
+True
 
-repr:
-Msg('\x00\x00\x00\x00')
+>>> m.port = 1234
+Traceback (most recent call last):
+...
+AttributeError: Msg piece doesn't take arg port
 
+>>> m.port
+Traceback (most recent call last):
+...
+AttributeError: 'Msg' object has no attribute 'port'
+
+>> m == '\x00\x00\x00\x05\x04\x00\x00\x00\x03'
+True
 ==: compares byte strings
-
 """
 
 import struct
@@ -83,15 +94,13 @@ class Msg(object):
     Msg('piece', index=3, begin=0, block='asdf')
     >>> str(a)
     '\x00\x00\x00\r\x07\x00\x00\x00\x03\x00\x00\x00\x00asdf'
-    >>> a.kind = 'asdf'; a.kind
-    'piece'
     >>> len(a)
     17
 
     """
     def __init__(self, kind_or_bytestring=None, **kwargs):
-        self._atts_modified = False
-        self._atts_dict = {}
+        self.__dict__['_atts_modified'] = False
+        self.__dict__['_atts_dict'] = {}
         if 'kind' in kwargs:
             if kind_or_bytestring:
                 raise TypeError("Specify a kind once or specify a bytestring")
@@ -105,6 +114,7 @@ class Msg(object):
             raise TypeError("__init__() takes a string of bytes or kw arguments" )
     def init_from_args(self, kind, **kwargs):
         self.__dict__['_kind'] = kind
+        self.__dict__['_atts_modified'] = True
         if self.kind == 'handshake':
             self.pstr = kwargs.get('pstr', 'BitTorrent Protocol')
             self.reserved = kwargs.get('reserved', '\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -122,7 +132,8 @@ class Msg(object):
             raise TypeError("kind must be an allowed message kind")
     def init_from_bytestring(self, bytestring):
         msg, rest = parse_message(bytestring)
-        self.__dict__['_kind'] = msg.kind
+        #TODO do this the real way
+        self._kind = msg.kind
         for dep in args_dict[msg.kind]:
             setattr(self, dep, getattr(msg, dep))
         if rest:
@@ -151,23 +162,26 @@ class Msg(object):
 
 
     # Make Msg's behave like strings in most cases
-    def __getattr__(self, att):
-        if att in dir(str):
-            if callable(getattr(str, att)):
-                def func_help(*args, **kwargs):
-                    result = getattr(self.s, att)(*args, **kwargs)
-                    return result
-                return func_help
-            else:
-                return getattr(self.s, att)
-        elif att in args_dict[self.kind]:
-            return self._atts_dict[att]
+    #def __getattr__(self, att):
+    #    if att in dir(str):
+    #        if callable(getattr(str, att)):
+    #            def func_help(*args, **kwargs):
+    #                result = getattr(self.s, att)(*args, **kwargs)
+    #                return result
+    #            return func_help
+    #        else:
+    #            return getattr(self.s, att)
+    #    elif att in args_dict[self.kind]:
+    #        return self._atts_dict[att]
 
     def __setattr__(self, item, value):
+        if item in self.__class__.__dict__ and isinstance(self.__class__.__dict__[item], property):
+            return self.__class__.__dict__[item].__set__(self, value)
         if '_kind' in self.__dict__ and item in args_dict[self.kind]:
-            self.atts_modified = True
-            #setattr(self, item, value)
+            self._atts_modified = True
             self.__dict__[item] = value
+        elif item in [arg for kind in args_dict for arg in args_dict[kind]]:
+            raise AttributeError('Msg '+kind+' doesn\'t take arg '+item)
         else:
             self.__dict__[item] = value
 
@@ -176,9 +190,9 @@ class Msg(object):
     kind = property(_get_kind, _set_kind)
 
     def _get_bytestring(self):
-        if self.atts_modified:
+        if self._atts_modified:
             self._bytestring = getattr(self, '_'+self.kind)()
-            self.atts_modified = False
+            self._atts_modified = False
         return self._bytestring
     def _set_bytestring(self, value):
         # todo: set the bytestring, then reinitialize
@@ -254,8 +268,20 @@ def parse_message(buff):
         print 'received unknown or incomplete message, or perhaps prev parse consumed too much:'
         print repr(buff)
 
+def messages_and_rest(buff):
+    # TODO do this in a more efficient way (index instead of buffer)
+    messages = []
+    rest = buff
+    while True:
+        m, rest = parse_message(rest)
+        if msg is None or m == 'incomplete message':
+            return tuple(messages), rest
+        else:
+            messages.append(m)
+
 # global convenience functions
-def keep_alive(): return Msg('keep_alive')
+def keep_alive():
+    return Msg('keep_alive')
 def choke(): return Msg('choke')
 def unchoke(): return Msg('unchoke')
 def interested(): return Msg('interested')
