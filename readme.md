@@ -1,5 +1,8 @@
 bittorrent client
 
+requirements:
+bencode
+bitarray
 
 Todo
 ----
