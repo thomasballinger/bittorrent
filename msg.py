@@ -150,21 +150,21 @@ class Msg(object):
         #TODO pass in kwargs instead of a real Msg object
 
     def _keep_alive(self): return '\x00' * 4
-    def _choke(self): return msg(0)
-    def _unchoke(self): return msg(1)
-    def _interested(self): return msg(2)
-    def _not_interested(self): return msg(3)
-    def _have(self): return msg(4, struct.pack('!I', self.index))
+    def _choke(self): return (0)
+    def _unchoke(self): return message(1)
+    def _interested(self): return message(2)
+    def _not_interested(self): return message(3)
+    def _have(self): return message(4, struct.pack('!I', self.index))
     def _bitfield(self):
         try:
             s = self.bitfield.tobytes()
         except AttributeError:
             s = self.bitfield
-        return msg(5, s)
-    def _request(self): return msg(6, struct.pack('!III', self.index, self.begin, self.length))
-    def _piece(self): return msg(7, struct.pack('!II', self.index, self.begin), self.block)
-    def _cancel(self): return msg(8, struct.pack('!III', self.index, self.begin, self.length))
-    def _port(self): return msg(9, struct.pack('!III', self.port))
+        return message(5, s)
+    def _request(self): return message(6, struct.pack('!III', self.index, self.begin, self.length))
+    def _piece(self): return message(7, struct.pack('!II', self.index, self.begin), self.block)
+    def _cancel(self): return message(8, struct.pack('!III', self.index, self.begin, self.length))
+    def _port(self): return message(9, struct.pack('!III', self.port))
     def _handshake(self):
         return ''.join([chr(len(self.pstr)), self.pstr, self.reserved, self.info_hash, self.peer_id])
 
@@ -229,7 +229,7 @@ class Msg(object):
         s += ')'
         return s
 
-def msg(kind, *args):
+def message(kind, *args):
     """Returns a msg bytestring from message id and args"""
     payload = ''.join(args)
     message_id = chr(kind)
@@ -298,7 +298,7 @@ def messages_and_rest(buff):
     rest = buff
     while True:
         m, rest = parse_message(rest)
-        if msg is None or m == 'incomplete message':
+        if m is None or m == 'incomplete message':
             return tuple(messages), rest
         else:
             messages.append(m)

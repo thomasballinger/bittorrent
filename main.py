@@ -93,7 +93,8 @@ class BittorrentClient(object):
         peers_data = response_data['peers']
         peer_addresses = []
         for sixbits in [peers_data[i:i+6] for i in range(0,len(peers_data),6)]:
-            peer_addresses.append(('.'.join(str(ord(ip_part)) for ip_part in sixbits[:4]), 256*ord(sixbits[4])+ord(sixbits[5])))
+            peer_addresses.append(
+                    ('.'.join(str(ord(ip_part)) for ip_part in sixbits[:4]), 256*ord(sixbits[4])+ord(sixbits[5])))
 
         #TODO fill out with our listening addr if we can filter it out
         our_ip = '127.0.0.1'
