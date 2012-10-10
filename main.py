@@ -145,45 +145,47 @@ class Peer(object):
 
     def get_message(self):
         while True:
-            msg = self.parse_message()
-            if msg is None:
+            message, rest = msg.parse_message(''.join(self.buffer))
+            self.buffer = [rest]
+            if message is None:
                 print 'nothing to read from buffer, so we\'re reading from socket'
                 self.read_socket()
-            elif msg == 'incomplete message':
+            elif message == 'incomplete message':
+                print 'incomplete message, so we\'re reading from socket'
                 self.read_socket()
             else:
                 break
-        print 'parsed a message:', repr(msg)[:200]
+        print 'parsed a message:', repr(message)[:200]
         self.parsed_last_message = time.time()
-        if msg[0] == 'handshake':
+        if message[0] == 'handshake':
             self.handshook = True
-        elif msg[0] == 'keepalive':
+        elif message[0] == 'keepalive':
             pass
-        elif msg[0] == 'bitfield':
-            self.peer_bitfield = msg[1]
-        elif msg[0] == 'unchoke':
+        elif message[0] == 'bitfield':
+            self.peer_bitfield = message[1]
+        elif message[0] == 'unchoke':
             self.choked = False
-        elif msg[0] == 'choke':
+        elif message[0] == 'choke':
             self.choked = True
-        elif msg[0] == 'interested':
+        elif message[0] == 'interested':
             self.peer_interested = True
-        elif msg[0] == 'not_interseted':
+        elif message[0] == 'not_interseted':
             self.peer_interested = False
-        elif msg[0] == 'have':
-            index = msg[1]
+        elif message[0] == 'have':
+            index = message[1]
             print index
             self.peer_bitfield[index] = 1
             print 'know we know peer has piece'
-        elif msg[0] == 'request':
+        elif message[0] == 'request':
             print 'doing nothing about peer request for peice'
-        elif msg[0] == 'piece':
-            _, index, begin, data = msg
+        elif message[0] == 'piece':
+            _, index, begin, data = message
             print 'receiving data'
             self.torrent.add_data(index, begin, data)
         else:
-            print 'didn\'t correctly process', msg
+            print 'didn\'t correctly process', message
             raise Exception('missed a message')
-        return msg
+        return message
 
 def main():
     client = BittorrentClient()
