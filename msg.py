@@ -43,7 +43,15 @@ True
 >>> m+'asdf'
 '\x00\x00\x00\x05\x04\x00\x00\x00\x03asdf'
 
-==: compares byte strings
+>>> msg.have(3).bytestring
+'\x00\x00\x00\x05\x04\x00\x00\x00\x03'
+
+>>> m=msg.handshake(info_hash='asdf', peer_id=';lkj')
+>>> m.kind
+'handshake'
+
+>> m.bytestring
+
 """
 
 import struct
@@ -156,12 +164,13 @@ class Msg(object):
     def _piece(self): return msg(7, struct.pack('!II', self.index, self.begin), self.block)
     def _cancel(self): return msg(8, struct.pack('!III', self.index, self.begin, self.length))
     def _port(self): return msg(9, struct.pack('!III', self.port))
+    def _handshake(self):
+        return ''.join([ord(len(self.protocol), self.protocol, self.reserved, self.info_hash, self.peer_id)])
 
 
     # Make Msg's behave like strings in most cases
     def __getattr__(self, att):
         #TODO find better way to make properties and getattr overloading work together
-        print 'looking for att', att
         if att in self.__class__.__dict__ and isinstance(self.__class__.__dict__[att], property):
             return self.__class__.__dict__[att].__set__(self)
         elif att in dir(str):
@@ -203,7 +212,7 @@ class Msg(object):
 
     # todo try to kill these methods and let it use the str ones
     def __len__(self): return len(self.bytestring)
-    def __eq__(self, other): return self.bytestring.__eq__(other)
+    def __eq__(self, other): return self.bytestring.__eq__(str(other))
     def __getitem__(self, key): return self.bytestring.__getitem__(key)
     def __iter__(self): return self.bytestring.__iter__()
     def __add__(self, other): return self.bytestring.__add__(str(other))
@@ -301,10 +310,14 @@ def piece(index, begin, block): return Msg(index=index, begin=begin, block=block
 def cancel(index, begin, length): Msg(index=index, begin=begin, length=length)
 def port(port): return Msg(port=port)
 def handshake(pstr=None, reserved=None, info_hash=None, peer_id=None):
-    if pstr is None: pstr = 'BitTorrent Protocol'
-    if reserved is None: pstr = '\x00\x00\x00\x00\x00\x00\x00\x00'
+    if info_hash is None:
+        raise ValueError("info_hash is required for handshake")
+    if peer_id is None:
+        raise ValueError("peer_id is required for handshake")
+    kwargs = {'info_hash' : info_hash, 'peer_id' : peer_id}
+    if pstr is not None: kwargs['pstr'] = pstr
+    if reserved is not None: kwargs['reserved'] = reserved
     x = Msg('handshake', pstr=pstr, reserved=reserved, info_hash=info_hash, peer_id=peer_id)
-    print repr(x)
     return x
 
 def test():
