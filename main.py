@@ -129,7 +129,7 @@ class Peer(object):
         self.s = socket.socket()
         print 'connecting to', self.ip, 'on port', self.port, '...'
         self.s.connect((self.ip, self.port))
-        def p(x): print 'sending', len(x), 'bytes:', repr(x); self.s.send(x)
+        def p(x): print 'sending', len(x), 'bytes:', repr(x); self.s.send(str(x))
         p(msg.handshake(info_hash=self.torrent.info_hash, peer_id=self.client.client_id))
         p(msg.bitfield(self.torrent.bitfield))
 
