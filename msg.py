@@ -51,6 +51,9 @@ True
 
 >>> m.bytestring
 '\x13BitTorrent Protocol\x00\x00\x00\x00\x00\x00\x00\x00asdf;lkj'
+
+>>> msg.interested().bytestring
+'\x00\x00\x00\x01\x02'
 """
 
 import struct
@@ -72,7 +75,7 @@ args_dict = {
         'keep_alive' : (),
         'choke' : (),
         'unchoke' : (),
-        'intersted' : (),
+        'interested' : (),
         'not_interested' : (),
         'have' : ('index',),
         'bitfield' : ('bitfield',),
@@ -309,10 +312,10 @@ def interested(): return Msg('interested')
 def not_interested(): return Msg('not_interested')
 def have(index): return Msg('have', index=index)
 def bitfield(bitfield): return Msg('bitfield', bitfield=bitfield)
-def request(index, begin, length): return Msg(index=index, begin=begin, length=length)
-def piece(index, begin, block): return Msg(index=index, begin=begin, block=block)
-def cancel(index, begin, length): Msg(index=index, begin=begin, length=length)
-def port(port): return Msg(port=port)
+def request(index, begin, length): return Msg('request', index=index, begin=begin, length=length)
+def piece(index, begin, block): return Msg('piece', index=index, begin=begin, block=block)
+def cancel(index, begin, length): Msg('cancel', index=index, begin=begin, length=length)
+def port(port): return Msg('port', port=port)
 def handshake(pstr=None, reserved=None, info_hash=None, peer_id=None):
     if info_hash is None:
         raise ValueError("info_hash is required for handshake")
