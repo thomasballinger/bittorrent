@@ -2,6 +2,8 @@
 
 >>> t = Torrent('./example.torrent'); t
 Torrent('./example.torrent')
+>>> str(t) #doctest: +ELLIPSIS
+'<Torrent Object at ...; contents: Distributed by Mininova.txt; TorrentFreak BitTorrent Speed Tips 101.pdf>'
 """
 
 import datetime

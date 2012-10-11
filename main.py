@@ -30,12 +30,20 @@ class ActiveTorrent(Torrent):
         self.have_data
 
 class BittorrentClient(object):
+    """
+    >>> client = BittorrentClient()
+    >>> t = ActiveTorrent('./example.torrent')
+    >>> client.tracker_update(t)
+    True
+
+    """
     def __init__(self):
         self.client_id = (str(time.time()) + 'tom client in Python that may not work correctly')[:20]
         self.port = 6881
         self.peers = []
+        self.time_since_tracker_update = None
 
-    def announce(self, torrent):
+    def tracker_update(self, torrent):
         """Returns data from Tracker specified in torrent"""
         announce_query_params = {
             'info_hash' : torrent.info_hash,
@@ -54,24 +62,26 @@ class BittorrentClient(object):
 
         addr = torrent.announce_url
         full_url = addr + '?' + urllib.urlencode(announce_query_params)
-        print 'opening', full_url, '...'
         response_data = bencode.bdecode(urllib.urlopen(full_url).read())
+
+        self.last_tracker_update = time.time()
+        self.tracker_min_interval = response_data['min interval']
+        self.tracker_interval = response_data['interval']
+        self.tracker_complete = response_data['complete']
+        self.tracker_incomplete = response_data['incomplete']
 
         peers_data = response_data['peers']
         peer_addresses = []
         for sixbits in [peers_data[i:i+6] for i in range(0,len(peers_data),6)]:
             peer_addresses.append(
                     ('.'.join(str(ord(ip_part)) for ip_part in sixbits[:4]), 256*ord(sixbits[4])+ord(sixbits[5])))
+        self.tracker_peer_addresses = tuple(peer_addresses)
+        return True
 
-        #TODO fill out with our listening addr if we can filter it out
-        our_ip = '127.0.0.1'
-        peer_addresses = [x for x in peer_addresses if x[0] != our_ip or x[1] != self.port]
-        response_data['peers'] = peer_addresses
-        return response_data
-
-    def add_peer(self, torrent, (ip, port)):
-        peer = Peer(self, torrent, (ip, port))
-        self.peers.append(peer)
+    def populate_peers(self):
+        for ip, port in self.tracker_peer_addresses:
+            peer = Peer(self, self.torrent, (ip, port))
+            self.peers.append(peer)
         return peer
 
 class Peer(object):
@@ -79,6 +89,7 @@ class Peer(object):
 
     >>> class FakeTorrent(): piece_hashes = ['1','2','3']
     >>> p = Peer('fakeclient', FakeTorrent, ('123.123.123.123', 1234)); p
+    <Peer 123.123.123.123:1234>
 
     """
     def __init__(self, client, torrent, (ip, port)):
@@ -94,12 +105,12 @@ class Peer(object):
         self.peer_bitfield = bitstring.BitArray(len(torrent.piece_hashes))
         self.handshook = False
         self.parsed_last_message = time.time()
-        self.connect()
+
     def __repr__(self):
-        return '<Peer {ip}:{port}>'.format(self.ip, self.port)
+        return '<Peer {ip}:{port}>'.format(ip=self.ip, port=self.port)
 
     def connect(self):
-        """Establishes TCP connection to peer and sends handshake"""
+        """Establishes TCP connection to peer and sends handshake and bitfield"""
         self.s = socket.socket()
         print 'connecting to', self.ip, 'on port', self.port, '...'
         self.s.connect((self.ip, self.port))
@@ -125,12 +136,11 @@ class Peer(object):
                 print 'nothing to read from buffer, so we\'re reading from socket'
                 self.read_socket()
             elif message == 'incomplete message':
-                print 'incomplete message, so we\'re reading from socket'
-                print 'total buffer length:', len(rest)
+                print 'incomplete message; total buffer length ', len(rest)
                 self.read_socket()
             else:
                 break
-        print 'parsed a message:', repr(message)[:200]
+        print 'parsed a message:', repr(message)[:80]
         self.parsed_last_message = time.time()
         if message[0] == 'handshake':
             self.handshook = True
@@ -165,12 +175,11 @@ class Peer(object):
 def main():
     client = BittorrentClient()
     t = ActiveTorrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
-    print repr(t)
-    announce_data = client.announce(t)
-    print announce_data
+    client.tracker_update(t)
+    client.populate_peers()
+    for peer in client.peers:
+        peer.connect()
 
-    (ip, port) = (announce_data['peers'][5])
-    p = client.add_peer(t, (ip, port))
     while True:
         p.get_message()
 
