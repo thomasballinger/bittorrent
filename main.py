@@ -177,9 +177,8 @@ def main():
     t = ActiveTorrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
     client.tracker_update(t)
     client.populate_peers()
-    for peer in client.peers:
-        peer.connect()
-
+    peer = client.peers[3]
+    peer.connect()
     while True:
         p.get_message()
 
