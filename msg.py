@@ -58,7 +58,7 @@ True
 
 import struct
 
-msg_dict = {
+MSG_NUMS = {
         0 : 'choke',
         1 : 'unchoke',
         2 : 'interested',
@@ -71,7 +71,7 @@ msg_dict = {
         9 : 'port',
         }
 
-args_dict = {
+MSG_ARGS = {
         'keep_alive' : (),
         'choke' : (),
         'unchoke' : (),
@@ -113,7 +113,7 @@ class Msg(object):
                 raise TypeError("Specify a kind once or specify a bytestring")
             kind_or_bytestring = kwargs['kind']
             del kwargs['kind']
-        if kind_or_bytestring in args_dict:
+        if kind_or_bytestring in MSG_ARGS:
             self.init_from_args(kind_or_bytestring, **kwargs)
         elif len(kwargs) == 0:
             self.init_from_bytestring(kind_or_bytestring)
@@ -127,21 +127,21 @@ class Msg(object):
             self.reserved = kwargs.get('reserved', '\x00\x00\x00\x00\x00\x00\x00\x00')
             self.info_hash = kwargs['info_hash']
             self.peer_id = kwargs['peer_id']
-        elif self.kind in args_dict:
-            for arg in args_dict[self.kind]:
+        elif self.kind in MSG_ARGS:
+            for arg in MSG_ARGS[self.kind]:
                 try:
                     setattr(self, arg, kwargs[arg])
                 except KeyError:
                     raise TypeError("__init__() for "+self.kind+" Msg requires "+arg )
-            if set(args_dict[self.kind]) != set(kwargs.keys()):
-                print 'warning: extra kwargs not being used:', set(kwargs.keys()) - set(args_dict[self.kind])
+            if set(MSG_ARGS[self.kind]) != set(kwargs.keys()):
+                print 'warning: extra kwargs not being used:', set(kwargs.keys()) - set(MSG_ARGS[self.kind])
         else:
             raise TypeError("kind must be an allowed message kind")
     def init_from_bytestring(self, bytestring):
         msg, rest = parse_message(bytestring)
         #TODO do this the real way
         self._kind = msg.kind
-        for dep in args_dict[msg.kind]:
+        for dep in MSG_ARGS[msg.kind]:
             setattr(self, dep, getattr(msg, dep))
         if rest:
             print rest
@@ -172,7 +172,8 @@ class Msg(object):
     def __getattr__(self, att):
         #TODO find better way to make properties and getattr overloading work together
         if att in self.__class__.__dict__ and isinstance(self.__class__.__dict__[att], property):
-            return self.__class__.__dict__[att].__set__(self)
+            # should be get, right? it was set
+            return self.__class__.__dict__[att].__get__(self)
         elif att in dir(str):
             if callable(getattr(str, att)):
                 def func_help(*args, **kwargs):
@@ -181,17 +182,17 @@ class Msg(object):
                 return func_help
             else:
                 return getattr(self.bytestring, att)
-        elif att in args_dict[self.kind]:
+        elif att in MSG_ARGS[self.kind]:
             return self._atts_dict[att]
 
     def __setattr__(self, item, value):
         #TODO find better way to make properties and getattr overloading work together
         if item in self.__class__.__dict__ and isinstance(self.__class__.__dict__[item], property):
             return self.__class__.__dict__[item].__set__(self, value)
-        if '_kind' in self.__dict__ and item in args_dict[self.kind]:
+        if '_kind' in self.__dict__ and item in MSG_ARGS[self.kind]:
             self._atts_modified = True
             self.__dict__[item] = value
-        elif item in [arg for kind in args_dict for arg in args_dict[kind]]:
+        elif item in [arg for kind in MSG_ARGS for arg in MSG_ARGS[kind]]:
             raise AttributeError('Msg '+kind+' does not take arg '+item)
         else:
             self.__dict__[item] = value
@@ -223,9 +224,9 @@ class Msg(object):
 
     def __repr__(self):
         s = 'Msg(\''+self.kind+'\''
-        if args_dict[self.kind]:
+        if MSG_ARGS[self.kind]:
             s += ', '
-        s += ', '.join([att+'='+repr(getattr(self, att)) for att in args_dict[self.kind]])
+        s += ', '.join([att+'='+repr(getattr(self, att)) for att in MSG_ARGS[self.kind]])
         s += ')'
         return s
 
@@ -268,7 +269,7 @@ def parse_message(buff):
         if msg_length == 0:
             return Msg('keep_alive'), rest
         msg_id = ord(buff[4])
-        kind = msg_dict[msg_id]
+        kind = MSG_NUMS[msg_id]
         #TODO add rest of messages
         if kind == 'bitfield':
             return Msg('bitfield', bitfield=buff[5:msg_length+4]), rest
@@ -279,10 +280,10 @@ def parse_message(buff):
             (index,) = struct.unpack('!I', buff[5:9])
             return Msg('have', index=index), rest
         elif msg_length == 1:
-            return Msg(msg_dict[msg_id])
+            return Msg(MSG_NUMS[msg_id])
         elif kind in ['request', 'cancel']:
             index, begin, length = struct.unpack('!III', buff[5:])
-            return Msg(msg_dict[msg_id], index=index, begin=begin, length=length), rest
+            return Msg(MSG_NUMS[msg_id], index=index, begin=begin, length=length), rest
         elif kind == 'port':
             (port,) = struct.unpack('!H', buff[5:7])
             return Msg('have', port=port), rest
