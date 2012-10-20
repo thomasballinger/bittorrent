@@ -1,8 +1,18 @@
 """Reactor with socket.select
 
-when a socket comes up, call its corresponding
-readerwriter with .read_event() or .write_event()
+First, instantiate a reactor.
+
+Next, register a file descriptor integer and corresponding
+object with the reactor.
+
+Then, register read or write on the integer (and therefore object)
+in order to have that object called on that read or write event
+
+Implement the read_event / write_event interface in that object
+
+Unregister read or write if you don't want the notification to happen again
 """
+
 """
 Notes on how nonblocking sockets work in Python
 error on recv when nothing to read
@@ -10,9 +20,8 @@ error on write when write buffer is full
 '' on recv if socket closed on other end
 broken pipe error on write if receiver closes early
 """
-import select
 
-SOCKET_READ_AMOUNT = 1024*1024
+import select
 
 class Reactor(object):
     def __init__(self):
@@ -34,7 +43,7 @@ class Reactor(object):
     def add_readerwriter(self, fd, readerwriter):
         self.fd_map[fd] = readerwriter
     def poll(self):
-        """Triggers one read or write event"""
+        """Triggers every read or write event that is up"""
         if not any([self.wait_for_read, self.wait_for_write]):
             return False
         read_fds, write_fds, err_fds = select.select(self.wait_for_read, self.wait_for_write, [])
@@ -45,7 +54,7 @@ class Reactor(object):
         for fd in write_fds:
             self.fd_map[fd].write_event()
 
-if __name__ == '__main__':
+def interactive_test():
     r = Reactor()
     class FileReaderWriter(object):
         def __init__(self):
@@ -81,3 +90,6 @@ if __name__ == '__main__':
     while True:
         raw_input('Hit enter to poll for events')
         r.poll()
+
+if __name__ == '__main__':
+    interactive_test()
