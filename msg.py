@@ -45,12 +45,14 @@ True
 >>> msg.have(3).bytestring
 '\x00\x00\x00\x05\x04\x00\x00\x00\x03'
 
->>> m = msg.handshake(info_hash='asdf', peer_id=';lkj')
+>>> m = msg.handshake(info_hash='a'*20, peer_id='b'*20)
 >>> m.kind
 'handshake'
+>>> len(m)
+68
 
 >>> m.bytestring
-'\x13BitTorrent Protocol\x00\x00\x00\x00\x00\x00\x00\x00asdf;lkj'
+'\x13BitTorrent Protocol\x00\x00\x00\x00\x00\x00\x00\x00aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbb'
 
 >>> msg.interested().bytestring
 '\x00\x00\x00\x01\x02'
@@ -123,7 +125,7 @@ class Msg(object):
         self._kind = kind
         self._atts_modified = True
         if self.kind == 'handshake':
-            self.pstr = kwargs.get('pstr', 'BitTorrent Protocol')
+            self.pstr = kwargs.get('pstr', 'BitTorrent protocol')
             self.reserved = kwargs.get('reserved', '\x00\x00\x00\x00\x00\x00\x00\x00')
             self.info_hash = kwargs['info_hash']
             self.peer_id = kwargs['peer_id']
@@ -215,7 +217,7 @@ class Msg(object):
     def __len__(self): return len(self.bytestring)
     def __eq__(self, other): return self.bytestring.__eq__(str(other))
     def __getitem__(self, key): return self.bytestring.__getitem__(key)
-    def __iter__(self): return self.bytestring.__iter__()
+    def __iter__(self): return iter(self.bytestring)
     def __add__(self, other): return self.bytestring.__add__(str(other))
     def __radd__(self, other): return other.__add__(str(self.bytestring))
     def __mul__(self, other): return self.bytestring.__mul__(other)
@@ -275,12 +277,12 @@ def parse_message(buff):
             return Msg('bitfield', bitfield=buff[5:msg_length+4]), rest
         elif kind == 'piece':
             index, begin = struct.unpack('!II', buff[5:13])
-            return Msg('piece', index=index, begin=begin, piece=buff[13:msg_length+4]), rest
+            return Msg('piece', index=index, begin=begin, block=buff[13:msg_length+4]), rest
         elif kind == 'have':
             (index,) = struct.unpack('!I', buff[5:9])
             return Msg('have', index=index), rest
         elif msg_length == 1:
-            return Msg(MSG_NUMS[msg_id])
+            return Msg(MSG_NUMS[msg_id]), rest
         elif kind in ['request', 'cancel']:
             index, begin, length = struct.unpack('!III', buff[5:])
             return Msg(MSG_NUMS[msg_id], index=index, begin=begin, length=length), rest
@@ -292,6 +294,7 @@ def parse_message(buff):
     else:
         print 'received unknown or incomplete message, or perhaps prev parse consumed too much:'
         print repr(buff)
+        raise Exception(repr(buff))
 
 def messages_and_rest(buff):
     # TODO do this in a more efficient way (index instead of buffer)

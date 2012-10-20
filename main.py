@@ -133,6 +133,7 @@ class Peer(object):
 
     def send_msg(self, *messages):
         self.messages_to_send.extend(messages)
+        print 'message queue now looks like:', self.messages_to_send
         self.reactor.reg_write(self.s)
 
     def connect(self):
@@ -155,6 +156,9 @@ class Peer(object):
         """Action to take if socket comes up as ready to be written to"""
         while self.messages_to_send:
             self.write_buffer += str(self.messages_to_send.pop(0))
+            print 'what we\'re going to write:'
+            print repr(self.write_buffer)
+            print len(self.write_buffer)
         if self.write_buffer:
             sent = self.s.send(self.write_buffer)
             print self, 'sent', sent, 'bytes'
@@ -173,7 +177,7 @@ class Peer(object):
         messages, self.read_buffer = msg.messages_and_rest(buff)
         if s:
             print 'received messages', messages
-            print 'with leftover bytes:', [hex(ord(x)) for x in self.read_buffer]
+            print 'with leftover bytes:', repr(self.read_buffer)
             print 'starting with', self.read_buffer[:60]
             self.messages_to_process.extend(messages)
 
@@ -229,9 +233,10 @@ class Peer(object):
 
 def main():
     client = BittorrentClient()
-    torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
+    #torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
+    torrent = client.add_torrent('/Users/tomb/Desktop/test.torrent')
     torrent.tracker_update()
-    peer = torrent.add_peer(*torrent.tracker_peer_addresses[9])
+    peer = torrent.add_peer(*torrent.tracker_peer_addresses[1])
     #peer = torrent.add_peer('', 8001)
     peer.send_msg(msg.interested())
     peer.send_msg(msg.request(0, 0, 2**14))
