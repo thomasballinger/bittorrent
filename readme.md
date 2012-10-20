@@ -21,7 +21,8 @@ Todo
 * Read about and play with request size - presumably piece size is a max
   spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
 * Can requests spill across pieces?
-* Use more memory-efficient
+* Use more memory-efficient bitmaps (SBA)
+* profile to see if send operations are blocking (consider sending less data per)
 * Play with pipelineing for max DL speed
 * writing testing scripts
 * write tests for bittorrent logic - fake messages so no network io
