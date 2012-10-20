@@ -20,21 +20,30 @@ class Reactor(object):
         self.wait_for_read = set()
         self.wait_for_write = set()
     def reg_read(self, fd):
+        if not isinstance(fd, int): fd = fd.fileno()
         self.wait_for_read.add(fd)
     def reg_write(self, fd):
+        if not isinstance(fd, int): fd = fd.fileno()
         self.wait_for_write.add(fd)
     def unreg_read(self, fd):
+        if not isinstance(fd, int): fd = fd.fileno()
         self.wait_for_read.remove(fd)
     def unreg_write(self, fd):
+        if not isinstance(fd, int): fd = fd.fileno()
         self.wait_for_write.remove(fd)
     def add_readerwriter(self, fd, readerwriter):
+        print 'adding', fd, readerwriter
         self.fd_map[fd] = readerwriter
     def poll(self):
         """Triggers one read or write event"""
+        print 'checking these fd\'s for readiness'
         print (self.wait_for_read, self.wait_for_write)
+        if not any([self.wait_for_read, self.wait_for_write]):
+            return False
         read_fds, write_fds, err_fds = select.select(self.wait_for_read, self.wait_for_write, [])
         if not any([read_fds, write_fds, err_fds]):
             return False
+        print [read_fds, write_fds, err_fds]
         for fd in read_fds:
             print 'calling read_event for fd', fd
             self.fd_map[fd].read_event()
@@ -47,17 +56,38 @@ class Reactor(object):
             print 'no write fds'
 
 if __name__ == '__main__':
+    r = Reactor()
     class FileReaderWriter(object):
         def __init__(self):
             self.f = open('/tmp/%d' % id(self), 'w')
         def read_event(self):
             print 'processing read event'
+            r.unreg_read(self.f.fileno())
         def write_event(self):
             print 'processing write event'
-    r = Reactor()
+            r.unreg_write(self.f.fileno())
+    import socket
+    class SocketReaderWriter(object):
+        listen_addr = ('', 9876)
+        listen = socket.socket()
+        listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listen.bind(listen_addr)
+        listen.listen(5)
+        def __init__(self):
+            self.s = socket.socket()
+            self.s.connect(SocketReaderWriter.listen_addr)
+        def read_event(self):
+            print 'processing read event and unregistering'
+            r.unreg_read(self.s.fileno())
+        def write_event(self):
+            print 'processing write event and unregistering'
+            r.unreg_write(self.s.fileno())
     f = FileReaderWriter()
     r.add_readerwriter(f.f.fileno(), f)
     r.reg_read(f.f.fileno())
+    s = SocketReaderWriter()
+    r.add_readerwriter(s.s.fileno(), s)
+    r.reg_write(s.s.fileno())
     while True:
         raw_input('Hit enter to poll for events')
         r.poll()

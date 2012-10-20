@@ -7,7 +7,7 @@ import bitstring
 
 import msg
 from torrent import Torrent
-from reactor import Reactor
+from reactor_select import Reactor
 
 class BittorrentClient(object):
     """
@@ -148,7 +148,7 @@ class Peer(object):
             pass #TODO check that it's actually the right error
         self.send_msg(msg.handshake(info_hash=self.torrent.info_hash, peer_id=self.torrent.client.client_id))
         self.send_msg(msg.bitfield(self.torrent.bitfield))
-        self.reactor.add_connection(self.s.fileno(), self)
+        self.reactor.add_readerwriter(self.s.fileno(), self)
         self.reactor.reg_write(self.s)
         self.reactor.reg_read(self.s)
 
@@ -243,7 +243,7 @@ def main():
     while True:
         import time
         time.sleep(.5)
-        client.reactor.shuttle()
+        client.reactor.poll()
 
         # to be replaced with state machine
 
