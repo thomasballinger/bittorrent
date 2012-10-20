@@ -111,10 +111,12 @@ class ActiveTorrent(Torrent):
         except IndexError:
             return False
         length = 2**14
+        length = self.piece_length
         self.pending[start:(start+length)] = 2**length - 1
         index = start / self.piece_length
         begin = start % self.piece_length
-        return msg.request(index=index, begin=begin, length=self.piece_length)
+        length = min(length, self.length - start)
+        return msg.request(index=index, begin=begin, length=length)
 
 class Peer(object):
     """Represents a connection to a peer regarding a specific torrent
@@ -274,8 +276,6 @@ def main():
     peer.send_msg(torrent.assign_needed_piece())
     peer.send_msg(torrent.assign_needed_piece())
     while True:
-        import time
-        time.sleep(.5)
         client.reactor.poll()
 
         # to be replaced with state machine

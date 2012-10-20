@@ -4,16 +4,21 @@ requirements:
 bencode
 bitarray
 
+deluge and opentracker on a linode instance are working for testing
+
 Todo
 ----
 
-* create local environment for testing - opentracker or something else
-    * opentracker + uTorrent isn't currently working
-    * something scriptable would be good
-* implement logic for getting rest of file, keeping connection up in Peer
-* prettier message parsing / writing
-* allow sending of chunks of a file
-* allow simultaneous torrent files
+* Maintain whether connection should be kept open, and keep it open if so
+* Figure out which peers to get which file pieces from 
+* choose file pieces more intelligently
+* actually check hashes
+* file access instead of in-memory file construction
+* multiple file construction
+* Read about and play with request size - presumably piece size is a max
+* Use more memory-efficient
+* Play with pipelineing for max DL speed
+* writing testing scripts
+* write tests for bittorrent logic - fake messages so no network io
 * factor things out enough that Twisted could be used as a core
-* nice doctests on parsing libraries
 * learn twisted
