@@ -32,28 +32,18 @@ class Reactor(object):
         if not isinstance(fd, int): fd = fd.fileno()
         self.wait_for_write.remove(fd)
     def add_readerwriter(self, fd, readerwriter):
-        print 'adding', fd, readerwriter
         self.fd_map[fd] = readerwriter
     def poll(self):
         """Triggers one read or write event"""
-        print 'checking these fd\'s for readiness'
-        print (self.wait_for_read, self.wait_for_write)
         if not any([self.wait_for_read, self.wait_for_write]):
             return False
         read_fds, write_fds, err_fds = select.select(self.wait_for_read, self.wait_for_write, [])
         if not any([read_fds, write_fds, err_fds]):
             return False
-        print [read_fds, write_fds, err_fds]
         for fd in read_fds:
-            print 'calling read_event for fd', fd
             self.fd_map[fd].read_event()
-        if not read_fds:
-            print 'no read fds'
         for fd in write_fds:
-            print 'calling write_event for fd', fd
             self.fd_map[fd].write_event()
-        if not write_fds:
-            print 'no write fds'
 
 if __name__ == '__main__':
     r = Reactor()

@@ -8,6 +8,7 @@ import bitstring
 import msg
 from torrent import Torrent
 from reactor_select import Reactor
+from sparsebitarray import SBA
 
 class BittorrentClient(object):
     """
@@ -39,7 +40,7 @@ class ActiveTorrent(Torrent):
         self.client = client
         #todo use a more efficient way to store what portions of pieces we have
         self.have_data = bitstring.BitArray(self.length)
-        print '1\'s', self.have_data.count(1)
+        self.pending = bitstring.BitArray(self.length)
 
         #todo store this stuff on disk
         self.data = bytearray(self.length)
@@ -103,9 +104,17 @@ class ActiveTorrent(Torrent):
         """how many copies of the full file are available from connected peers"""
         raise Exception("Not Yet Implemented")
 
-    def get_needed_piece(self):
+    def assign_needed_piece(self):
         """Returns a block to be requested, and marks it as pending"""
-        raise Exception("Not Yet Implemented")
+        try:
+            start = self.pending.find('0b0')[0]
+        except IndexError:
+            return False
+        length = 2**14
+        self.pending[start:(start+length)] = 2**length - 1
+        index = start / self.piece_length
+        begin = start % self.piece_length
+        return msg.request(index=index, begin=begin, length=self.piece_length)
 
 class Peer(object):
     """Represents a connection to a peer regarding a specific torrent
@@ -143,7 +152,7 @@ class Peer(object):
 
     def send_msg(self, *messages):
         self.messages_to_send.extend(messages)
-        print 'message queue now looks like:', self.messages_to_send
+        #print 'message queue now looks like:', self.messages_to_send
         self.reactor.reg_write(self.s)
 
     def connect(self):
@@ -166,12 +175,12 @@ class Peer(object):
         """Action to take if socket comes up as ready to be written to"""
         while self.messages_to_send:
             self.write_buffer += str(self.messages_to_send.pop(0))
-            print 'what we\'re going to write:'
-            print repr(self.write_buffer)
-            print len(self.write_buffer)
+            #print 'what we\'re going to write:'
+            #print repr(self.write_buffer)
+            #print len(self.write_buffer)
         if self.write_buffer:
             sent = self.s.send(self.write_buffer)
-            print self, 'sent', sent, 'bytes'
+            #print self, 'sent', sent, 'bytes'
             self.write_buffer = self.write_buffer[sent:]
         if not self.write_buffer:
             self.reactor.unreg_write(self.s)
@@ -184,12 +193,12 @@ class Peer(object):
             self.die() # since reading nothing from a socket means closed
         self.last_received_data = time.time()
         buff = self.read_buffer + s
-        print self, 'received', len(s), 'bytes'
+        #print self, 'received', len(s), 'bytes'
         messages, self.read_buffer = msg.messages_and_rest(buff)
         if s:
-            print 'received messages', messages
-            print 'with leftover bytes:', repr(self.read_buffer)
-            print 'starting with', repr(self.read_buffer[:60])
+            #print 'received messages', messages
+            #print 'with leftover bytes:', repr(self.read_buffer)
+            #print 'starting with', repr(self.read_buffer[:60])
             self.messages_to_process.extend(messages)
             self.process_all_messages()
 
@@ -228,12 +237,15 @@ class Peer(object):
             self.peer_interested = False
         elif m.kind == 'have':
             self.peer_bitfield[m.index] = 1
-            print 'know we know peer has piece', m.index
+            #print 'know we know peer has piece', m.index
         elif m.kind == 'request':
-            print 'doing nothing about peer request for piece'
+            pass #print 'doing nothing about peer request for piece'
         elif m.kind == 'piece':
-            print 'receiving data'
+            #print 'receiving data'
             self.torrent.add_data(m.index, m.begin, m.block)
+            new_m = self.torrent.assign_needed_piece()
+            if new_m:
+                self.send_msg(new_m)
         else:
             print 'didn\'t correctly process', repr(m)
             raise Exception('missed a message')
@@ -247,7 +259,20 @@ def main():
     peer = torrent.add_peer(*torrent.tracker_peer_addresses[1])
     #peer = torrent.add_peer('', 8001)
     peer.send_msg(msg.interested())
-    peer.send_msg(msg.request(0, 0, 2**14))
+    #peer.send_msg(msg.request(0, 0, 2**14))
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
+    peer.send_msg(torrent.assign_needed_piece())
     while True:
         import time
         time.sleep(.5)
