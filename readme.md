@@ -13,7 +13,9 @@ Todo
 * Figure out which peers to get which file pieces from 
 * choose file pieces more intelligently
 * actually check hashes
+* listen on socket for peer connections
 * file access instead of in-memory file construction
+* game theory algorithms - karma
 * multiple file construction
 * Read about and play with request size - presumably piece size is a max
 * Use more memory-efficient
