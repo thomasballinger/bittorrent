@@ -258,7 +258,7 @@ def main():
     #torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
     torrent = client.add_torrent('/Users/tomb/Desktop/test.torrent')
     torrent.tracker_update()
-    peer = torrent.add_peer(*torrent.tracker_peer_addresses[1])
+    peer = torrent.add_peer(*torrent.tracker_peer_addresses[2])
     #peer = torrent.add_peer('', 8001)
     peer.send_msg(msg.interested())
     #peer.send_msg(msg.request(0, 0, 2**14))
@@ -275,10 +275,10 @@ def main():
     peer.send_msg(torrent.assign_needed_piece())
     peer.send_msg(torrent.assign_needed_piece())
     peer.send_msg(torrent.assign_needed_piece())
+    # to be replaced with state machine, for now each of these messages runs repeatedly
     while True:
         client.reactor.poll()
 
-        # to be replaced with state machine
 
 def test():
     import doctest
