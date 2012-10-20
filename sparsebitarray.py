@@ -2,6 +2,7 @@
 Sparse (really Frequently Contiguous) Binary Array
 
 TODO:
+bitwise and would be really useful
 generalize to more than two possible values
 binary search to find overlapping segments
 
