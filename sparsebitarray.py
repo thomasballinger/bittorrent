@@ -1,4 +1,11 @@
+"""
+Sparse (really Frequently Contiguous) Binary Array
 
+TODO:
+generalize to more than two possible values
+binary search to find overlapping segments
+
+"""
 class SBA(object):
     """Sparse BitArray, in which data is represented by ranges
 
@@ -42,7 +49,7 @@ class SBA(object):
             elif start <= r_start <= end or start <= r_end <= end:
                 edge_overlapping.append((r_start, r_end))
             else:
-                raise Exception("Logic Error!"+repr((start, end, self.set_ranges)))
+                raise Exception("Logic Error!")
         return contained_by_new, edge_overlapping, contains_new
 
     def __getitem__(self, key):
@@ -90,7 +97,7 @@ class SBA(object):
                 return False
 
     def __setitem__(self, key, value):
-        """Sets item
+        """Sets item or slice to True or False
 
         >>> s = SBA(20); s[2:6] = True; s
         <SparseBitArray of length 20, [(2, 6)]>
