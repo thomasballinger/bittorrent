@@ -39,6 +39,7 @@ class ActiveTorrent(Torrent):
         self.client = client
         #todo use a more efficient way to store what portions of pieces we have
         self.have_data = bitstring.BitArray(self.length)
+        print '1\'s', self.have_data.count(1)
 
         #todo store this stuff on disk
         self.data = bytearray(self.length)
@@ -87,15 +88,24 @@ class ActiveTorrent(Torrent):
         self.peers.append(p)
         return p
 
-    def add_data(self, index, begin, data):
-        self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(data)] = 1
-        self.data[index*self.piece_length+begin:index*self.piece_length+begin+len(data)] = data
-        print 'data added'
-        print 'file now', self.percent(), 'percent done'
+    def get_pieces(self):
+        pass
+
+    def add_data(self, index, begin, block):
+        self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = 2**(len(block))-1
+        self.data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = block
+        print 'file now %02.2f' % self.percent(), 'percent done'
 
     def percent(self):
-        return int(self.have_data.count(1) * 1.0 / self.length * 100)
-        self.have_data
+        return self.have_data.count(1) * 1.0 / self.length * 100
+
+    def availability(self):
+        """how many copies of the full file are available from connected peers"""
+        raise Exception("Not Yet Implemented")
+
+    def get_needed_piece(self):
+        """Returns a block to be requested, and marks it as pending"""
+        raise Exception("Not Yet Implemented")
 
 class Peer(object):
     """Represents a connection to a peer regarding a specific torrent
@@ -120,7 +130,7 @@ class Peer(object):
         self.received_handshake = False
         self.connected = False
 
-        self.parsed_last_message = time.time()
+        self.last_received_data = time.time()
         #TODO don't use strings for buffers
         self.read_buffer = ''
         self.write_buffer = ''
@@ -171,15 +181,17 @@ class Peer(object):
         #TODO don't hardcode this number
         s = self.s.recv(1024*1024)
         if not s:
-            self.die()
+            self.die() # since reading nothing from a socket means closed
+        self.last_received_data = time.time()
         buff = self.read_buffer + s
         print self, 'received', len(s), 'bytes'
         messages, self.read_buffer = msg.messages_and_rest(buff)
         if s:
             print 'received messages', messages
             print 'with leftover bytes:', repr(self.read_buffer)
-            print 'starting with', self.read_buffer[:60]
+            print 'starting with', repr(self.read_buffer[:60])
             self.messages_to_process.extend(messages)
+            self.process_all_messages()
 
     def die(self):
         self.reactor.unreg_write(self.s)
@@ -187,49 +199,45 @@ class Peer(object):
         self.s.close()
         self.torrent.kill_peer(self)
 
-    def get_message(self):
-        while True:
-            message, rest = msg.parse_message(''.join(self.buffer))
-            self.buffer = [rest]
-            if message is None:
-                print 'nothing to read from buffer, so we\'re reading from socket'
-                self.read_socket()
-            elif message == 'incomplete message':
-                print 'incomplete message; total buffer length ', len(rest)
-                self.read_socket()
-            else:
-                break
-        print 'parsed a message:', repr(message)[:80]
-        self.parsed_last_message = time.time()
-        if message[0] == 'handshake':
+    def process_all_messages(self):
+        while self.messages_to_process:
+            self.process_msg()
+
+    def process_msg(self):
+        """Returns number of messages left in messages_to_process afterwards
+
+        big state machine-y thing
+        """
+        if not self.messages_to_process:
+            return 0
+        m = self.messages_to_process.pop(0)
+        print 'processing message', repr(m)
+        if m.kind == 'handshake':
             self.handshook = True
-        elif message[0] == 'keepalive':
+        elif m.kind == 'keepalive':
             pass
-        elif message[0] == 'bitfield':
-            self.peer_bitfield = message[1]
-        elif message[0] == 'unchoke':
+        elif m.kind == 'bitfield':
+            self.peer_bitfield = bitstring.BitArray(bytes=m.bitfield)
+        elif m.kind == 'unchoke':
             self.choked = False
-        elif message[0] == 'choke':
+        elif m.kind == 'choke':
             self.choked = True
-        elif message[0] == 'interested':
+        elif m.kind == 'interested':
             self.peer_interested = True
-        elif message[0] == 'not_interseted':
+        elif m.kind == 'not_interested':
             self.peer_interested = False
-        elif message[0] == 'have':
-            index = message[1]
-            print index
-            self.peer_bitfield[index] = 1
-            print 'know we know peer has piece'
-        elif message[0] == 'request':
-            print 'doing nothing about peer request for peice'
-        elif message[0] == 'piece':
-            _, index, begin, data = message
+        elif m.kind == 'have':
+            self.peer_bitfield[m.index] = 1
+            print 'know we know peer has piece', m.index
+        elif m.kind == 'request':
+            print 'doing nothing about peer request for piece'
+        elif m.kind == 'piece':
             print 'receiving data'
-            self.torrent.add_data(index, begin, data)
+            self.torrent.add_data(m.index, m.begin, m.block)
         else:
-            print 'didn\'t correctly process', message
+            print 'didn\'t correctly process', repr(m)
             raise Exception('missed a message')
-        return message
+        return m
 
 def main():
     client = BittorrentClient()

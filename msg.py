@@ -226,9 +226,12 @@ class Msg(object):
 
     def __repr__(self):
         s = 'Msg(\''+self.kind+'\''
-        if MSG_ARGS[self.kind]:
+        for att in MSG_ARGS[self.kind]:
             s += ', '
-        s += ', '.join([att+'='+repr(getattr(self, att)) for att in MSG_ARGS[self.kind]])
+            if att == 'block':
+                s += att+'='+repr(getattr(self, att)[:30])+'...'
+            else:
+                s += att+'='+repr(getattr(self, att))
         s += ')'
         return s
 
