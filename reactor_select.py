@@ -45,14 +45,20 @@ class Reactor(object):
         self.wait_for_write.add(fd)
     def unreg_read(self, fd):
         if not isinstance(fd, int): fd = fd.fileno()
-        self.wait_for_read.remove(fd)
+        try: self.wait_for_read.remove(fd)
+        except KeyError: pass
     def unreg_write(self, fd):
         if not isinstance(fd, int): fd = fd.fileno()
-        self.wait_for_write.remove(fd)
+        try: self.wait_for_write.remove(fd)
+        except KeyError: pass
     def start_timer(self, delay, dinger):
         self.timers.append((time.time() + delay, dinger))
-    def cancel_timers(self, delay, dinger):
-        self.timers = filter(lambda (t, x): dinger)
+    def cancel_timers(self, dinger):
+        """Takes an object which impements .timer_event()"""
+        print dinger
+        print self.timers
+        self.timers = filter(lambda (t, x): x != dinger, self.timers)
+        print self.timers
     def add_readerwriter(self, fd, readerwriter):
         self.fd_map[fd] = readerwriter
     def poll(self):

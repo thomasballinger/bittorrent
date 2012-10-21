@@ -27,6 +27,7 @@ class BittorrentClient(object):
 
     def start_listen(self):
         self.listen_socket = socket.socket()
+        self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listen_socket.setblocking(False)
         self.listen_socket.bind(('', self.port))
         self.listen_socket.listen(5)
@@ -35,18 +36,27 @@ class BittorrentClient(object):
         self.pending_connections = []
 
     def read_event(self):
-        s = self.listen_socket.accept()
+        s, (ip, port) = self.listen_socket.accept()
         print 'receiving incoming connection!'
+        p = Peer((ip, port), client=self)
+        p.s = s
+        p.respond()
+        self.pending_connections.append(p)
+
+    def kill_peer(self, peer):
+        self.pending_connections.remove(peer)
 
     def add_torrent(self, filename):
         t = ActiveTorrent(filename, self)
         self.torrents.append(t)
         return t
 
-    def find_torrent(self, info_hash):
+    def move_to_torrent(self, peer, info_hash):
         for torrent in self.torrents:
             if torrent.info_hash == info_hash:
-                return torrent
+                torrent.peers.append(peer)
+                peer.set_torrent(torrent)
+                return True
         return False
 
 class ActiveTorrent(Torrent):
@@ -154,6 +164,7 @@ class Peer(object):
         self.sent_handshake = False
         self.handshake = False
         self.connected = False
+        self.dead = False
 
         self.last_received_data = time.time()
         #TODO don't use strings for buffers
@@ -164,10 +175,11 @@ class Peer(object):
         self.outstanding_requests = {}
 
         if active_torrent is not None:
-            client = None
+            self.client = None
             self.set_torrent(active_torrent)
         elif client is not None:
             self.client = client
+            self.torrent = None
             self.reactor = client.reactor
 
         self.reactor.start_timer(1, self)
@@ -247,14 +259,23 @@ class Peer(object):
                 self.run_strategy()
 
     def timer_event(self):
-        self.run_strategy()
         self.reactor.start_timer(1, self)
+        self.run_strategy()
 
     def die(self):
+        print self, 'is dieing'
+        if self.dead:
+            print '... but was already dead/dieing'
+            return
+        self.dead = True
         self.reactor.unreg_write(self.s)
         self.reactor.unreg_read(self.s)
+        self.reactor.cancel_timers(self)
         self.s.close()
-        self.torrent.kill_peer(self)
+        if self.torrent is not None:
+            self.torrent.kill_peer(self)
+        else:
+            self.client.kill_peer(self)
 
     def check_outstanding_requests(self):
         for (index, begin), t_sent in self.outstanding_requests.iteritems():
@@ -325,15 +346,18 @@ def do_nothing_strategy(peer):
     pass
 
 def respond_strategy(peer):
+    if len(peer.read_buffer) > 68:
+        peer.die()
     if peer.handshake:
-        torrent = peer.client.find_torrent(peer.handshake.info_hash)
-        if not torrent:
+        if not peer.client.move_to_torrent(peer, peer.handshake.info_hash):
             peer.die()
-        peer.set_torrent(torrent)
         peer.strategy = do_nothing_strategy
         peer.send_msg(msg.handshake(info_hash=peer.torrent.info_hash, peer_id=peer.torrent.client.client_id))
         peer.send_msg(msg.bitfield(peer.torrent.bitfield))
-        peer.reactor.reg_write(peer.s)
+    #TODO I'm concerned that I may try to unregister an unregistered
+    # event; peer.die() comes before any reg_write
+    # For now all unregs return whether there was one there to
+    # remove or not
 
 def main():
     client = BittorrentClient()
