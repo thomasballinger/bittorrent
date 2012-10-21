@@ -258,14 +258,18 @@ def parse_message(buff):
     """
     if len(buff) == 0:
         return None, ''
-    elif len(buff) >= 49 and buff[1:20] == 'BitTorrent protocol':
-        l = ord(buff[0])
-        protocol = buff[1:20]
-        reserved = buff[20:28]
-        info_hash = buff[28:48]
-        peer_id = buff[48:68]
-        rest = buff[68:]
-        return Msg('handshake', protocol=protocol, reserved=reserved, info_hash=info_hash, peer_id=peer_id), rest
+    elif len(buff) >= 5 and buff[:4] == '\x13BitT':
+        if len(buff) >= 49+19 and buff[1:20] == 'BitTorrent protocol':
+            l = ord(buff[0])
+            protocol = buff[1:20]
+            reserved = buff[20:28]
+            info_hash = buff[28:48]
+            peer_id = buff[48:68]
+            rest = buff[68:]
+            return Msg('handshake', protocol=protocol, reserved=reserved, info_hash=info_hash, peer_id=peer_id), rest
+        else:
+            print 'received incomplete message, looks like a handshake'
+            return 'incomplete message', buff
     elif len(buff) >= 4:
         msg_length = struct.unpack('!I', buff[:4])[0]
         if len(buff) < msg_length + 4:
@@ -274,6 +278,8 @@ def parse_message(buff):
         if msg_length == 0:
             return Msg('keep_alive'), rest
         msg_id = ord(buff[4])
+        if msg_id == 'T':
+            raise Exception("Need to write a smarter parse function - this was likely a handshake!")
         kind = MSG_NUMS[msg_id]
         #TODO add rest of messages
         if kind == 'bitfield':
@@ -287,6 +293,7 @@ def parse_message(buff):
         elif msg_length == 1:
             return Msg(MSG_NUMS[msg_id]), rest
         elif kind in ['request', 'cancel']:
+            print 'buff:', repr(buff)
             index, begin, length = struct.unpack('!III', buff[5:])
             return Msg(MSG_NUMS[msg_id], index=index, begin=begin, length=length), rest
         elif kind == 'port':
