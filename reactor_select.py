@@ -29,7 +29,8 @@ time to cancel an object's timers, and therefore possible to destroy it.
 import select
 import time
 
-MAX_DELAY = .3 # how long after a timer comes up it may be delayed
+DEFAULT_TIMEOUT = .3 # how long after a timer comes up it may be delayed
+DEFAULT_TIMER_SLEEP = .3
 
 class Reactor(object):
     def __init__(self):
@@ -55,14 +56,24 @@ class Reactor(object):
         self.timers.append((time.time() + delay, dinger))
     def cancel_timers(self, dinger):
         """Takes an object which impements .timer_event()"""
-        print dinger
-        print self.timers
         self.timers = filter(lambda (t, x): x != dinger, self.timers)
-        print self.timers
     def add_readerwriter(self, fd, readerwriter):
         self.fd_map[fd] = readerwriter
-    def poll(self):
-        """Triggers every timer, read or write event that is up"""
+    def poll(self, timeout=DEFAULT_TIMEOUT, timer_sleep=DEFAULT_TIMER_SLEEP):
+        """Triggers every timer, and the first read or write event that is up
+
+        Returns False if no events were hit
+        Returns None if no events are registered
+        timeout is the timeout passed to select in seconds
+        timer_sleep is the time slept if no select is necessary because we're just
+          using timers, (no io registered) to prevent thrashing the cpu
+        """
+        if not any([self.wait_for_read, self.wait_for_write, self.timers]):
+            return None
+        if not any([self.wait_for_read, self.wait_for_write]):
+            time.sleep(timer_sleep)
+            return False
+
         now = time.time()
         while True:
             self.timers.sort(key=lambda x: x[0])
@@ -74,12 +85,13 @@ class Reactor(object):
                     break
             else:
                 break
-        if not any([self.wait_for_read, self.wait_for_write]):
-            return False
-        read_fds, write_fds, err_fds = select.select(self.wait_for_read, self.wait_for_write, [], MAX_DELAY)
+        read_fds, write_fds, err_fds = select.select(self.wait_for_read, self.wait_for_write, [], timeout)
         if not any([read_fds, write_fds, err_fds]):
             return False
         for fd in read_fds:
             self.fd_map[fd].read_event()
+            return True
         for fd in write_fds:
             self.fd_map[fd].write_event()
+            return True
+        return False

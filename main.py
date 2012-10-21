@@ -121,6 +121,9 @@ class ActiveTorrent(Torrent):
         self.peers.append(p)
         return p
 
+    def kill_peer(self, peer):
+        self.peers.remove(peer)
+
     def add_data(self, index, begin, block):
         self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = 2**(len(block))-1
         self.data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = block
@@ -243,10 +246,16 @@ class Peer(object):
     def read_event(self):
         """Action to take if socket comes up as ready be read from"""
         #TODO don't hardcode this number
-        s = self.s.recv(1024*1024)
-        if not s:
-            print 'dieing because received read event but nothing to read on socket'
+        try:
+            s = self.s.recv(1024*1024)
+        except socket.error:
+            print self, 'dieing because connection refused'
             self.die() # since reading nothing from a socket means closed
+            return 'die'
+        if not s:
+            print self, 'dieing because received read event but nothing to read on socket'
+            self.die() # since reading nothing from a socket means closed
+            return 'die'
         self.last_received_data = time.time()
         buff = self.read_buffer + s
         #print self, 'received', len(s), 'bytes'
@@ -264,10 +273,9 @@ class Peer(object):
         self.run_strategy()
 
     def die(self):
-        print self, 'is dieing'
         if self.dead:
             print '... but was already dead/dieing'
-            return
+            raise Exception("Double Death")
         self.dead = True
         self.reactor.unreg_write(self.s)
         self.reactor.unreg_read(self.s)
@@ -348,6 +356,7 @@ def do_nothing_strategy(peer):
 
 def respond_strategy(peer):
     if len(peer.read_buffer) > 68:
+        print 'dieing because more than 68 bytes in read buffer, after we should have tried to parse'
         peer.die()
     if peer.handshake:
         if not peer.client.move_to_torrent(peer, peer.handshake.info_hash):
@@ -362,7 +371,7 @@ def respond_strategy(peer):
 
 def main():
     client = BittorrentClient()
-    torrent = client.add_torrent('/Users/tomb/Desktop/test.torrent')
+    torrent = client.add_torrent('test.torrent')
     torrent.tracker_update()
     peer = torrent.add_peer(*torrent.tracker_peer_addresses[1])
     peer.connect()
@@ -371,8 +380,10 @@ def main():
     peer.strategy = keep_asking_strategy
     peer.run_strategy()
     while True:
-        client.reactor.poll()
-
+        r = client.reactor.poll(10)
+        print r
+        if r is None:
+            return
 
 def test():
     import doctest
