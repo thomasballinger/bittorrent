@@ -17,12 +17,6 @@ for instance, and perhaps also on a timer
 Reactor needs timer events
 Torrent behaviors get called on timer events
 
-Peers need to save pending requests and check up on them so we can cancel
-them if we don't need the piece
-Peer Behaviors:
-Get called after every read/write event, and perhaps also on timers?
-They implement sending more messages or not - 
-
 peer.send_msg needs to take care of housekeeping for these messages
 individual messages need to time out, this housekeeping needs to
 happen even if now 
@@ -31,9 +25,10 @@ Todo
 ----
 
 * Maintain whether connection should be kept open, and keep it open if so
-* Figure out which peers to get which file pieces from 
+* Figure out which peers to get which file pieces from
+    (random is reasonable acc. to spec)
 * choose file pieces more intelligently
-* actually check hashes
+* actually check hashes - so figure out when pieces are done
 * listen on socket for peer connections
 * file access instead of in-memory file construction
 * game theory algorithms - karma
