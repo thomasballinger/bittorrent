@@ -17,7 +17,8 @@ class Torrent(object):
         self.initialize_from_torrent_file()
     def __str__(self):
         return '<Torrent Object at '+str(id(self))+'; contents: '+self.name+'>'
-    def __repr__(self): return 'Torrent(\''+self.filename+'\')'
+    def __repr__(self):
+        return 'Torrent(\''+self.filename+'\')'
 
     class ParsingException(Exception): pass
 

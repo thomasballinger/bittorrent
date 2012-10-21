@@ -130,6 +130,14 @@ class ActiveTorrent(Torrent):
         self.num_bytes_have = self.have_data.count(1)
         print 'file now %02.2f' % self.percent(), 'percent done'
 
+    def get_data_if_have(self, index, begin, length):
+        start = index*self.piece_length
+        end = index*self.piece_length+length
+        if all(self.have_data[start:end]):
+            return str(self.data[start:end])
+        else:
+            return False
+
     def percent(self):
         return self.num_bytes_have * 1.0 / self.length * 100
 
@@ -176,6 +184,7 @@ class Peer(object):
         self.messages_to_process = []
         self.messages_to_send = []
         self.outstanding_requests = {}
+        self.torrent = None
 
         if active_torrent is not None:
             self.client = None
@@ -184,10 +193,13 @@ class Peer(object):
             self.client = client
             self.torrent = None
             self.reactor = client.reactor
+        else:
+            raise ValueError("Need either a torrent or a client")
 
         self.reactor.start_timer(1, self)
 
     def set_torrent(self, active_torrent):
+        print 'set torrent called on', self
         self.client = None
         self.torrent = active_torrent
         self.reactor = self.torrent.client.reactor
@@ -197,9 +209,15 @@ class Peer(object):
         self.choked = True
         self.peer_choked = False
         self.peer_bitfield = bitstring.BitArray(len(active_torrent.piece_hashes))
+        print 'set torrent done being called on', self
 
     def __repr__(self):
-        return '<Peer {ip}:{port}>'.format(ip=self.ip, port=self.port)
+        if self.torrent:
+            return '<Peer {ip}:{port} for {torrent}>'.format(ip=self.ip, port=self.port, torrent=self.torrent)
+        elif self.client:
+            return '<Peer {ip}:{port} of {client}>'.format(ip=self.ip, port=self.port, client=self.client)
+        else:
+            return '<Peer {ip}:{port}>'.format(ip=self.ip, port=self.port)
 
     def send_msg(self, *messages):
         for m in messages:
@@ -327,7 +345,16 @@ class Peer(object):
             self.peer_bitfield[m.index] = 1
             #print 'know we know peer has piece', m.index
         elif m.kind == 'request':
-            pass #print 'doing nothing about peer request for piece'
+            #TODO prove this won't happen when we don't yet have an associated torrent,
+            # or throw a nice error
+            print 'torrent:', self.torrent
+            if self.torrent is None:
+                raise Exception(repr(self)+' can\'t process request when no torrent associated yet')
+            data = self.torrent.get_data_if_have(m.index, m.begin, m.length)
+            if data:
+                self.send_msg(msg.piece(m.index, m.begin, data))
+            else:
+                print self, 'was just asked for piece it didn\'t have'
         elif m.kind == 'piece':
             #print 'receiving data'
             del self.outstanding_requests[(m.index, m.begin)]
@@ -355,19 +382,21 @@ def do_nothing_strategy(peer):
     pass
 
 def respond_strategy(peer):
+    """Respond strategy is initially for peers not yet connected to a torrent"""
+    print 'running respond strategy for', peer
     if len(peer.read_buffer) > 68:
         print 'dieing because more than 68 bytes in read buffer, after we should have tried to parse'
         peer.die()
     if peer.handshake:
         if not peer.client.move_to_torrent(peer, peer.handshake.info_hash):
+            print 'dieing because client couldn\'t find matching torrent'
             peer.die()
+            return
+        print 'switching to do_nothing_strategy'
         peer.strategy = do_nothing_strategy
         peer.send_msg(msg.handshake(info_hash=peer.torrent.info_hash, peer_id=peer.torrent.client.client_id))
         peer.send_msg(msg.bitfield(peer.torrent.bitfield))
-    #TODO I'm concerned that I may try to unregister an unregistered
-    # event; peer.die() comes before any reg_write
-    # For now all unregs return whether there was one there to
-    # remove or not
+        peer.send_msg(msg.unchoke())
 
 def main():
     client = BittorrentClient()
@@ -380,7 +409,7 @@ def main():
     peer.strategy = keep_asking_strategy
     peer.run_strategy()
     while True:
-        r = client.reactor.poll(10)
+        r = client.reactor.poll(1)
         if r is None:
             return
 
