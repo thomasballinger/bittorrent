@@ -37,7 +37,7 @@ class BittorrentClient(object):
 
     def read_event(self):
         s, (ip, port) = self.listen_socket.accept()
-        print 'receiving incoming connection!'
+        print 'receiving incoming connection from', ip, port
         p = Peer((ip, port), client=self)
         p.s = s
         p.respond()
@@ -245,6 +245,7 @@ class Peer(object):
         #TODO don't hardcode this number
         s = self.s.recv(1024*1024)
         if not s:
+            print 'dieing because received read event but nothing to read on socket'
             self.die() # since reading nothing from a socket means closed
         self.last_received_data = time.time()
         buff = self.read_buffer + s
