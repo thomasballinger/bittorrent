@@ -23,6 +23,20 @@ class BittorrentClient(object):
         self.port = 6881
         self.torrents = []
         self.reactor = Reactor()
+        self.start_listen()
+
+    def start_listen(self):
+        self.listen_socket = socket.socket()
+        self.listen_socket.setblocking(False)
+        self.listen_socket.bind(('', self.port))
+        self.listen_socket.listen(5)
+        self.reactor.add_readerwriter(self.listen_socket.fileno(), self)
+        self.reactor.reg_read(self.listen_socket.fileno())
+        self.pending_connections = []
+
+    def read_event(self):
+        s = self.listen_socket.accept()
+        print 'receiving incoming connection!'
 
     def add_torrent(self, filename):
         t = ActiveTorrent(filename, self)
