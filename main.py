@@ -147,12 +147,16 @@ class Peer(object):
         self.write_buffer = ''
         self.messages_to_process = []
         self.messages_to_send = []
+        self.outstanding_requests = {}
         self.connect()
 
     def __repr__(self):
         return '<Peer {ip}:{port}>'.format(ip=self.ip, port=self.port)
 
     def send_msg(self, *messages):
+        for m in messages:
+            if m.kind == 'request':
+                self.outstanding_requests[(m.index, m.begin)] = time.time()
         self.messages_to_send.extend(messages)
         #print 'message queue now looks like:', self.messages_to_send
         self.reactor.reg_write(self.s)
@@ -210,6 +214,10 @@ class Peer(object):
         self.s.close()
         self.torrent.kill_peer(self)
 
+    def check_outstanding_requests(self):
+        for (index, begin), t_sent in self.outstanding_requests.iteritems():
+            print 'pending requests:', index, begin, time.time() - t_sent
+
     def process_all_messages(self):
         while self.messages_to_process:
             self.process_msg()
@@ -244,6 +252,7 @@ class Peer(object):
             pass #print 'doing nothing about peer request for piece'
         elif m.kind == 'piece':
             #print 'receiving data'
+            del self.outstanding_requests[(m.index, m.begin)]
             self.torrent.add_data(m.index, m.begin, m.block)
             new_m = self.torrent.assign_needed_piece()
             if new_m:
@@ -255,10 +264,10 @@ class Peer(object):
 
 def main():
     client = BittorrentClient()
-    #torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
     torrent = client.add_torrent('/Users/tomb/Desktop/test.torrent')
     torrent.tracker_update()
     peer = torrent.add_peer(*torrent.tracker_peer_addresses[2])
+    peer.get_pieces(5)
     #peer = torrent.add_peer('', 8001)
     peer.send_msg(msg.interested())
     #peer.send_msg(msg.request(0, 0, 2**14))

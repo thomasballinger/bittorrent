@@ -6,6 +6,27 @@ bitarray
 
 deluge and opentracker on a linode instance are working for testing
 
+Behaviors:
+Peer can set each torrent to downloading, seeding, or both
+torrent.seeding = True, torrent.downloading = True
+Torrents Have Behaviors:
+Behaviors can be functions that get called a lot, which
+maintain state. They needn't be methods. On every read/write event
+for instance, and perhaps also on a timer
+
+Reactor needs timer events
+Torrent behaviors get called on timer events
+
+Peers need to save pending requests and check up on them so we can cancel
+them if we don't need the piece
+Peer Behaviors:
+Get called after every read/write event, and perhaps also on timers?
+They implement sending more messages or not - 
+
+peer.send_msg needs to take care of housekeeping for these messages
+individual messages need to time out, this housekeeping needs to
+happen even if now 
+
 Todo
 ----
 
