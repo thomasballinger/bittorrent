@@ -251,11 +251,11 @@ class Peer(object):
         except socket.error:
             print self, 'dieing because connection refused'
             self.die() # since reading nothing from a socket means closed
-            return 'die'
+            return
         if not s:
             print self, 'dieing because received read event but nothing to read on socket'
             self.die() # since reading nothing from a socket means closed
-            return 'die'
+            return
         self.last_received_data = time.time()
         buff = self.read_buffer + s
         #print self, 'received', len(s), 'bytes'
@@ -381,7 +381,6 @@ def main():
     peer.run_strategy()
     while True:
         r = client.reactor.poll(10)
-        print r
         if r is None:
             return
 

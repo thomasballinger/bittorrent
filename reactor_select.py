@@ -90,8 +90,8 @@ class Reactor(object):
             return False
         for fd in read_fds:
             self.fd_map[fd].read_event()
-            return True
+            return self.fd_map[fd]
         for fd in write_fds:
             self.fd_map[fd].write_event()
-            return True
+            return self.fd_map[fd]
         return False

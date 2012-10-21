@@ -258,7 +258,7 @@ def parse_message(buff):
     """
     if len(buff) == 0:
         return None, ''
-    elif len(buff) >= 5 and buff[:4] == '\x13BitT':
+    elif len(buff) >= 5 and buff[:5] == '\x13BitT':
         if len(buff) >= 49+19 and buff[1:20] == 'BitTorrent protocol':
             l = ord(buff[0])
             protocol = buff[1:20]
