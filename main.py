@@ -43,6 +43,12 @@ class BittorrentClient(object):
         self.torrents.append(t)
         return t
 
+    def find_torrent(self, info_hash):
+        for torrent in self.torrents:
+            if torrent.info_hash == info_hash:
+                return torrent
+        return False
+
 class ActiveTorrent(Torrent):
     """Contains torrent data and peers
 
@@ -101,7 +107,7 @@ class ActiveTorrent(Torrent):
         return True
 
     def add_peer(self, ip, port):
-        p = Peer(self, (ip, port))
+        p = Peer((ip, port), active_torrent=self)
         self.peers.append(p)
         return p
 
@@ -135,24 +141,18 @@ class ActiveTorrent(Torrent):
 class Peer(object):
     """Represents a connection to a peer regarding a specific torrent
 
+    But can also be instantiated without a torrent until after handshake
+
     >>> class FakeTorrent(): piece_hashes = ['1','2','3']
-    >>> p = Peer('fakeclient', FakeTorrent, ('123.123.123.123', 1234)); p
+    >>> p = Peer(('123.123.123.123', 1234), active_torrent=FakeTorrent); p
     <Peer 123.123.123.123:1234>
     """
-    def __init__(self, active_torrent, (ip, port)):
+    def __init__(self, (ip, port), active_torrent=None, client=None):
         self.ip = ip
         self.port = port
-        self.torrent = active_torrent
-        self.reactor = active_torrent.client.reactor
-
-        self.peer_interested = False
-        self.interested = False
-        self.choked = True
-        self.peer_choked = False
-        self.peer_bitfield = bitstring.BitArray(len(active_torrent.piece_hashes))
 
         self.sent_handshake = False
-        self.received_handshake = False
+        self.handshake = False
         self.connected = False
 
         self.last_received_data = time.time()
@@ -162,7 +162,26 @@ class Peer(object):
         self.messages_to_process = []
         self.messages_to_send = []
         self.outstanding_requests = {}
-        self.connect()
+
+        if active_torrent is not None:
+            client = None
+            self.set_torrent(active_torrent)
+        elif client is not None:
+            self.client = client
+            self.reactor = client.reactor
+
+        self.reactor.start_timer(1, self)
+
+    def set_torrent(self, active_torrent):
+        self.client = None
+        self.torrent = active_torrent
+        self.reactor = self.torrent.client.reactor
+
+        self.peer_interested = False
+        self.interested = False
+        self.choked = True
+        self.peer_choked = False
+        self.peer_bitfield = bitstring.BitArray(len(active_torrent.piece_hashes))
 
     def __repr__(self):
         return '<Peer {ip}:{port}>'.format(ip=self.ip, port=self.port)
@@ -175,10 +194,14 @@ class Peer(object):
         #print 'message queue now looks like:', self.messages_to_send
         self.reactor.reg_write(self.s)
 
+    def respond(self):
+        self.strategy = respond_strategy
+        self.reactor.add_readerwriter(self.s.fileno(), self)
+        self.reactor.reg_read(self.s)
+
     def connect(self):
         """Establishes TCP connection to peer and sends handshake and bitfield"""
         self.s = socket.socket()
-        self.reactor
         print 'connecting to', self.ip, 'on port', self.port, '...'
         self.s.setblocking(False)
         try:
@@ -257,7 +280,7 @@ class Peer(object):
         m = self.messages_to_process.pop(0)
         #print 'processing message', repr(m)
         if m.kind == 'handshake':
-            self.handshook = True
+            self.handshake = m
         elif m.kind == 'keepalive':
             pass
         elif m.kind == 'bitfield':
@@ -301,15 +324,26 @@ def cancel_all_strategy(peer):
 def do_nothing_strategy(peer):
     pass
 
+def respond_strategy(peer):
+    if peer.handshake:
+        torrent = peer.client.find_torrent(peer.handshake.info_hash)
+        if not torrent:
+            peer.die()
+        peer.set_torrent(torrent)
+        peer.strategy = do_nothing_strategy
+        peer.send_msg(msg.handshake(info_hash=peer.torrent.info_hash, peer_id=peer.torrent.client.client_id))
+        peer.send_msg(msg.bitfield(peer.torrent.bitfield))
+        peer.reactor.reg_write(peer.s)
+
 def main():
     client = BittorrentClient()
     torrent = client.add_torrent('/Users/tomb/Desktop/test.torrent')
     torrent.tracker_update()
     peer = torrent.add_peer(*torrent.tracker_peer_addresses[1])
+    peer.connect()
     #peer = torrent.add_peer('', 8001)
     peer.send_msg(msg.interested())
     peer.strategy = keep_asking_strategy
-    peer.reactor.start_timer(1, peer)
     peer.run_strategy()
     while True:
         client.reactor.poll()
