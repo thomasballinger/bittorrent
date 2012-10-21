@@ -46,6 +46,8 @@ class ActiveTorrent(Torrent):
         self.data = bytearray(self.length)
         self.bitfield = bitstring.BitArray(len(self.piece_hashes))
 
+        self.num_bytes_have = 0
+
         self.peers = []
 
     def tracker_update(self):
@@ -89,16 +91,14 @@ class ActiveTorrent(Torrent):
         self.peers.append(p)
         return p
 
-    def get_pieces(self):
-        pass
-
     def add_data(self, index, begin, block):
         self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = 2**(len(block))-1
         self.data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = block
+        self.num_bytes_have = self.have_data.count(1)
         print 'file now %02.2f' % self.percent(), 'percent done'
 
     def percent(self):
-        return self.have_data.count(1) * 1.0 / self.length * 100
+        return self.num_bytes_have * 1.0 / self.length * 100
 
     def availability(self):
         """how many copies of the full file are available from connected peers"""
@@ -206,7 +206,12 @@ class Peer(object):
             #print 'with leftover bytes:', repr(self.read_buffer)
             #print 'starting with', repr(self.read_buffer[:60])
             self.messages_to_process.extend(messages)
-            self.process_all_messages()
+            if self.process_all_messages():
+                self.run_strategy()
+
+    def timer_event(self):
+        self.run_strategy()
+        self.reactor.start_timer(1, self)
 
     def die(self):
         self.reactor.unreg_write(self.s)
@@ -218,7 +223,13 @@ class Peer(object):
         for (index, begin), t_sent in self.outstanding_requests.iteritems():
             print 'pending requests:', index, begin, time.time() - t_sent
 
+    def run_strategy(self):
+        #print 'running strategy', self.strategy.__name__
+        self.strategy(self)
+
     def process_all_messages(self):
+        if not self.messages_to_process:
+            return False
         while self.messages_to_process:
             self.process_msg()
 
@@ -230,7 +241,7 @@ class Peer(object):
         if not self.messages_to_process:
             return 0
         m = self.messages_to_process.pop(0)
-        print 'processing message', repr(m)
+        #print 'processing message', repr(m)
         if m.kind == 'handshake':
             self.handshook = True
         elif m.kind == 'keepalive':
@@ -254,37 +265,38 @@ class Peer(object):
             #print 'receiving data'
             del self.outstanding_requests[(m.index, m.begin)]
             self.torrent.add_data(m.index, m.begin, m.block)
-            new_m = self.torrent.assign_needed_piece()
-            if new_m:
-                self.send_msg(new_m)
         else:
             print 'didn\'t correctly process', repr(m)
             raise Exception('missed a message')
         return m
 
+def keep_asking_strategy(peer):
+    while len(peer.outstanding_requests) < 15:
+        needed_piece = peer.torrent.assign_needed_piece()
+        if needed_piece:
+            peer.send_msg(needed_piece)
+        else:
+            break
+    if peer.torrent.num_bytes_have == peer.torrent.length:
+        for p in peer.torrent.peers:
+            p.strategy = cancel_all_strategy
+
+def cancel_all_strategy(peer):
+    peer.strategy = do_nothing_strategy
+
+def do_nothing_strategy(peer):
+    pass
+
 def main():
     client = BittorrentClient()
     torrent = client.add_torrent('/Users/tomb/Desktop/test.torrent')
     torrent.tracker_update()
-    peer = torrent.add_peer(*torrent.tracker_peer_addresses[2])
-    peer.get_pieces(5)
+    peer = torrent.add_peer(*torrent.tracker_peer_addresses[1])
     #peer = torrent.add_peer('', 8001)
     peer.send_msg(msg.interested())
-    #peer.send_msg(msg.request(0, 0, 2**14))
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    peer.send_msg(torrent.assign_needed_piece())
-    # to be replaced with state machine, for now each of these messages runs repeatedly
+    peer.strategy = keep_asking_strategy
+    peer.reactor.start_timer(1, peer)
+    peer.run_strategy()
     while True:
         client.reactor.poll()
 

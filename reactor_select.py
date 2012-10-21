@@ -29,7 +29,7 @@ time to cancel an object's timers, and therefore possible to destroy it.
 import select
 import time
 
-MAX_DELAY = 1 # how long after a timer comes up it may be delayed
+MAX_DELAY = .3 # how long after a timer comes up it may be delayed
 
 class Reactor(object):
     def __init__(self):
