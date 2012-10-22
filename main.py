@@ -18,9 +18,9 @@ class BittorrentClient(object):
     True
 
     """
-    def __init__(self):
+    def __init__(self, listen_port=6881):
         self.client_id = (str(time.time()) + 'tom client in Python that may not work correctly')[:20]
-        self.port = 6881
+        self.port = listen_port
         self.torrents = []
         self.reactor = Reactor()
         self.start_listen()
@@ -80,6 +80,13 @@ class ActiveTorrent(Torrent):
 
         self.peers = []
 
+    def load(self, filename):
+        #TODO check hashes of all pieces
+        self.have_data[:] = 2**(self.length)-1
+        self.data[:] = open(filename, 'rb').read()
+        self.num_bytes_have = self.have_data.count(1)
+        assert self.num_bytes_have == self.length
+
     def tracker_update(self):
         """Returns data from Tracker specified in torrent"""
         announce_query_params = {
@@ -137,6 +144,9 @@ class ActiveTorrent(Torrent):
             return str(self.data[start:end])
         else:
             return False
+
+    def done(self):
+        return self.num_bytes_have == self.length
 
     def percent(self):
         return self.num_bytes_have * 1.0 / self.length * 100
@@ -350,11 +360,14 @@ class Peer(object):
             print 'torrent:', self.torrent
             if self.torrent is None:
                 raise Exception(repr(self)+' can\'t process request when no torrent associated yet')
-            data = self.torrent.get_data_if_have(m.index, m.begin, m.length)
-            if data:
-                self.send_msg(msg.piece(m.index, m.begin, data))
+            if self.peer_interested:
+                data = self.torrent.get_data_if_have(m.index, m.begin, m.length)
+                if data:
+                    self.send_msg(msg.piece(m.index, m.begin, data))
+                else:
+                    print self, 'was just asked for piece it didn\'t have'
             else:
-                print self, 'was just asked for piece it didn\'t have'
+                print 'peer requesting piece despite not sending interested, so not sending it'
         elif m.kind == 'piece':
             #print 'receiving data'
             del self.outstanding_requests[(m.index, m.begin)]

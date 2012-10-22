@@ -33,9 +33,11 @@ Todo
 * file access instead of in-memory file construction
 * game theory algorithms - karma
 * endgame cancel messages
-* multiple file construction
+* correctly not be interested when peer has nothing we want
+* make sure being choked / being unchoked works ok
 * Read about and play with request size - presumably piece size is a max
   spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
+* multiple file construction
 * Can requests spill across pieces?
 * Use more memory-efficient bitmaps (SBA)
 * profile to see if send operations are blocking (consider sending less data per)

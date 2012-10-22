@@ -293,7 +293,6 @@ def parse_message(buff):
         elif msg_length == 1:
             return Msg(MSG_NUMS[msg_id]), rest
         elif kind in ['request', 'cancel']:
-            print 'buff:', repr(buff)
             index, begin, length = struct.unpack('!III', buff[5:])
             return Msg(MSG_NUMS[msg_id], index=index, begin=begin, length=length), rest
         elif kind == 'port':
