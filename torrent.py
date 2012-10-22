@@ -9,6 +9,7 @@ Torrent('./example.torrent')
 import datetime
 import sha
 import bencode
+import socket
 
 class Torrent(object):
     """Torrent file data"""

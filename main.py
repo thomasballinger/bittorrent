@@ -89,6 +89,7 @@ class ActiveTorrent(Torrent):
 
     def tracker_update(self):
         """Returns data from Tracker specified in torrent"""
+
         announce_query_params = {
             'info_hash' : self.info_hash,
             'peer_id' : self.client.client_id,
@@ -122,6 +123,20 @@ class ActiveTorrent(Torrent):
                     ('.'.join(str(ord(ip_part)) for ip_part in sixbits[:4]), 256*ord(sixbits[4])+ord(sixbits[5])))
         self.tracker_peer_addresses = tuple(peer_addresses)
         return True
+
+    def get_external_addr(self):
+        s = socket.socket()
+        port = 80
+        addr = self.announce_url
+        if ':' in self.announce_url:
+            _, first, rest = self.announce_url.split(':')
+            addr = first.split('/')[-1]
+            port = rest.split('/')[0]
+            port = int(port)
+        s.connect((addr, port))
+        ip, port = s.getsockname()
+        s.close()
+        return ip
 
     def add_peer(self, ip, port):
         p = Peer((ip, port), active_torrent=self)
@@ -276,6 +291,7 @@ class Peer(object):
         #TODO don't hardcode this number
         try:
             s = self.s.recv(1024*1024)
+            print repr(s)
         except socket.error:
             print self, 'dieing because connection refused'
             self.die() # since reading nothing from a socket means closed
@@ -289,9 +305,9 @@ class Peer(object):
         #print self, 'received', len(s), 'bytes'
         messages, self.read_buffer = msg.messages_and_rest(buff)
         if s:
-            #print 'received messages', messages
-            #print 'with leftover bytes:', repr(self.read_buffer)
-            #print 'starting with', repr(self.read_buffer[:60])
+            print 'received messages', messages
+            print 'with leftover bytes:', repr(self.read_buffer)
+            print 'starting with', repr(self.read_buffer[:60])
             self.messages_to_process.extend(messages)
             if self.process_all_messages():
                 self.run_strategy()
@@ -413,9 +429,19 @@ def respond_strategy(peer):
 
 def main():
     client = BittorrentClient()
-    torrent = client.add_torrent('test.torrent')
+    torrent = client.add_torrent('localtest.torrent')
     torrent.tracker_update()
-    peer = torrent.add_peer(*torrent.tracker_peer_addresses[1])
+
+    print torrent.tracker_peer_addresses
+    external_ip = torrent.get_external_addr()
+    print 'removing', (external_ip, client.port)
+    addresses = filter(lambda ipport:(external_ip, client.port) != ipport, torrent.tracker_peer_addresses)
+    print addresses
+
+    if not addresses:
+        print 'no one else on tracker!'
+        return
+    peer = torrent.add_peer(*addresses[0])
     peer.connect()
     #peer = torrent.add_peer('', 8001)
     peer.send_msg(msg.interested())

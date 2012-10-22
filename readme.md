@@ -32,6 +32,7 @@ Todo
 * listen on socket for peer connections
 * file access instead of in-memory file construction
 * game theory algorithms - karma
+* change announce params
 * endgame cancel messages
 * correctly not be interested when peer has nothing we want
 * make sure being choked / being unchoked works ok
