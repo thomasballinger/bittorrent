@@ -25,22 +25,25 @@ Todo
 ----
 
 * Maintain whether connection should be kept open, and keep it open if so
+* file access instead of in-memory file construction
+* actually check hashes - so figure out when pieces are done
+* Don't ask if they don't have the piece
+* make sure being choked / being unchoked works ok
+* correctly not be interested when peer has nothing we want
+* Read about and play with request size - presumably piece size is a max
+   spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
+* Use more memory-efficient bitmaps (SBA)
+
+------the I'm Done line------
+
 * Figure out which peers to get which file pieces from
     (random is reasonable acc. to spec)
 * choose file pieces more intelligently
-* actually check hashes - so figure out when pieces are done
-* listen on socket for peer connections
-* file access instead of in-memory file construction
 * game theory algorithms - karma
 * change announce params
 * endgame cancel messages
-* correctly not be interested when peer has nothing we want
-* make sure being choked / being unchoked works ok
-* Read about and play with request size - presumably piece size is a max
-  spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
 * multiple file construction
 * Can requests spill across pieces?
-* Use more memory-efficient bitmaps (SBA)
 * profile to see if send operations are blocking (consider sending less data per)
 * Play with pipelineing for max DL speed
 * writing testing scripts

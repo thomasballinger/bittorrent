@@ -224,7 +224,6 @@ class Peer(object):
         self.reactor.start_timer(1, self)
 
     def set_torrent(self, active_torrent):
-        print 'set torrent called on', self
         self.client = None
         self.torrent = active_torrent
         self.reactor = self.torrent.client.reactor
@@ -234,7 +233,6 @@ class Peer(object):
         self.choked = True
         self.peer_choked = False
         self.peer_bitfield = bitstring.BitArray(len(active_torrent.piece_hashes))
-        print 'set torrent done being called on', self
 
     def __repr__(self):
         if self.torrent:
@@ -256,6 +254,7 @@ class Peer(object):
         self.strategy = respond_strategy
         self.reactor.add_readerwriter(self.s.fileno(), self)
         self.reactor.reg_read(self.s)
+        self.run_strategy()
 
     def connect(self):
         """Establishes TCP connection to peer and sends handshake and bitfield"""
@@ -291,7 +290,6 @@ class Peer(object):
         #TODO don't hardcode this number
         try:
             s = self.s.recv(1024*1024)
-            print repr(s)
         except socket.error:
             print self, 'dieing because connection refused'
             self.die() # since reading nothing from a socket means closed
@@ -305,9 +303,9 @@ class Peer(object):
         #print self, 'received', len(s), 'bytes'
         messages, self.read_buffer = msg.messages_and_rest(buff)
         if s:
-            print 'received messages', messages
-            print 'with leftover bytes:', repr(self.read_buffer)
-            print 'starting with', repr(self.read_buffer[:60])
+            #print 'received messages', messages
+            #print 'with leftover bytes:', repr(self.read_buffer)
+            #print 'starting with', repr(self.read_buffer[:60])
             self.messages_to_process.extend(messages)
             if self.process_all_messages():
                 self.run_strategy()
@@ -354,7 +352,14 @@ class Peer(object):
         m = self.messages_to_process.pop(0)
         #print 'processing message', repr(m)
         if m.kind == 'handshake':
+            if self.handshake:
+                raise Exception('Received second handshake')
             self.handshake = m
+            if not self.torrent:
+                if not self.client.move_to_torrent(self, self.handshake.info_hash):
+                    print 'dieing because client couldn\'t find matching torrent'
+                    self.die()
+                    return
         elif m.kind == 'keepalive':
             pass
         elif m.kind == 'bitfield':
@@ -373,13 +378,14 @@ class Peer(object):
         elif m.kind == 'request':
             #TODO prove this won't happen when we don't yet have an associated torrent,
             # or throw a nice error
-            print 'torrent:', self.torrent
             if self.torrent is None:
                 raise Exception(repr(self)+' can\'t process request when no torrent associated yet')
             if self.peer_interested:
                 data = self.torrent.get_data_if_have(m.index, m.begin, m.length)
                 if data:
-                    self.send_msg(msg.piece(m.index, m.begin, data))
+                    m = msg.piece(m.index, m.begin, data)
+                    print 'sending', m, 'to', self
+                    self.send_msg(m)
                 else:
                     print self, 'was just asked for piece it didn\'t have'
             else:
@@ -417,10 +423,6 @@ def respond_strategy(peer):
         print 'dieing because more than 68 bytes in read buffer, after we should have tried to parse'
         peer.die()
     if peer.handshake:
-        if not peer.client.move_to_torrent(peer, peer.handshake.info_hash):
-            print 'dieing because client couldn\'t find matching torrent'
-            peer.die()
-            return
         print 'switching to do_nothing_strategy'
         peer.strategy = do_nothing_strategy
         peer.send_msg(msg.handshake(info_hash=peer.torrent.info_hash, peer_id=peer.torrent.client.client_id))
