@@ -2,6 +2,7 @@ import bencode
 import urllib
 import time
 import socket
+import sha
 
 import bitstring
 
@@ -82,12 +83,33 @@ class ActiveTorrent(Torrent):
 
         self.peers = []
 
+    def check_piece_hashes(self):
+        """Returns the number of piece hashes checked"""
+        checked = 0
+        failed = 0
+        for i, piece_hash in enumerate(self.piece_hashes):
+            print i, repr(piece_hash)
+            start = i*self.piece_length
+            end = min((i+1)*(self.piece_length), self.length)
+            if all(self.have_data[start:end]):
+                checked += 1
+                piece_hash = sha.new(self.data[start:end]).digest()
+                if piece_hash != self.piece_hashes[i]:
+                    print 'hash check failed!'
+                    print 'throwing out piece', i
+                    print '(bytes', start,'up to', end, ')'
+                    failed += 1
+                    self.have_data[start:end] = 0
+                    self.data[start:end] = '\x00'
+        return checked - failed
+
     def load(self, filename):
         #TODO check hashes of all pieces
         self.have_data[:] = 2**(self.length)-1
         self.data[:] = open(filename, 'rb').read()
         self.num_bytes_have = self.have_data.count(1)
         assert self.num_bytes_have == self.length
+        assert self.check_piece_hashes() == len(self.piece_hashes)
 
     def tracker_update(self):
         """Returns data from Tracker specified in torrent"""
@@ -373,7 +395,9 @@ class Peer(object):
         elif m.kind == 'keepalive':
             pass
         elif m.kind == 'bitfield':
+            old_bitfield = self.peer_bitfield
             self.peer_bitfield = bitstring.BitArray(bytes=m.bitfield)
+            assert len(old_bitfield) == len(self.peer_bitfield)
         elif m.kind == 'unchoke':
             self.choked = False
         elif m.kind == 'choke':
@@ -445,6 +469,7 @@ def respond_strategy(peer):
 def main():
     client = BittorrentClient()
     torrent = client.add_torrent('flagfromserver.torrent')
+    #torrent = client.add_torrent('test.torrent')
     torrent.tracker_update()
 
     print 'got these peers from tracker:', torrent.tracker_peer_addresses
