@@ -29,8 +29,8 @@ time to cancel an object's timers, and therefore possible to destroy it.
 import select
 import time
 
-DEFAULT_TIMEOUT = .3 # how long after a timer comes up it may be delayed
-DEFAULT_TIMER_SLEEP = .3
+DEFAULT_TIMEOUT = .03 # how long after a timer comes up it may be delayed
+DEFAULT_TIMER_SLEEP = .01
 
 class Reactor(object):
     def __init__(self):

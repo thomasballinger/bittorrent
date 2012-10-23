@@ -25,9 +25,9 @@ Todo
 ----
 
 * Maintain whether connection should be kept open, and keep it open if so
+* actually check hashes - so figure out when pieces are done
 ---done above this line---
 
-* actually check hashes - so figure out when pieces are done
 * file access instead of in-memory file construction
 * Don't ask if they don't have the piece
 * make sure being choked / being unchoked works ok

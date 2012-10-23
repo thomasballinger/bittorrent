@@ -1,4 +1,5 @@
 import bencode
+import sys
 import urllib
 import time
 import socket
@@ -97,12 +98,14 @@ class ActiveTorrent(Torrent):
             if all(self.have_data[start:end]):
                 checked += 1
                 piece_hash = sha.new(self.data[start:end]).digest()
-                if piece_hash != self.piece_hashes[i]:
+                if piece_hash == self.piece_hashes[i]:
                     self.checked[i] = True
                 else:
                     print 'hash check failed!'
                     print 'throwing out piece', i
                     print '(bytes', start,'up to', end, ')'
+                    print 'lookup:', self.piece_hashes[i]
+                    print 'calculated:', piece_hash
                     failed += 1
                     self.have_data[start:end] = 0
                     self.data[start:end] = '\x00'
@@ -180,7 +183,8 @@ class ActiveTorrent(Torrent):
         self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = 2**(len(block))-1
         self.data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = block
         self.num_bytes_have = self.have_data.count(1)
-        print 'file now %02.2f' % self.percent(), 'percent done'
+        sys.stdout.write(('file now %02.2f' % self.percent()) + ' percent done\r')
+        sys.stdout.flush()
 
     def get_data_if_have(self, index, begin, length):
         start = index*self.piece_length
@@ -372,7 +376,7 @@ class Peer(object):
             print 'pending requests:', index, begin, time.time() - t_sent
 
     def run_strategy(self):
-        print 'running strategy', self.strategy.__name__
+        #print 'running strategy', self.strategy.__name__
         self.strategy(self)
 
     def process_all_messages(self):
@@ -405,8 +409,6 @@ class Peer(object):
             old_bitfield = self.peer_bitfield
             temp = bitstring.BitArray(bytes=m.bitfield)
             self.peer_bitfield = temp[:len(self.torrent.piece_hashes)]
-            print 'initialized bitfield:', len(old_bitfield)
-            print 'bitfield from peer:', len(self.peer_bitfield)
             assert len(old_bitfield) == len(self.peer_bitfield)
         elif m.kind == 'unchoke':
             self.choked = False
@@ -444,7 +446,6 @@ class Peer(object):
         return m
 
 def keep_asking_strategy(peer):
-    print 'running strategy'
     peer.torrent.check_piece_hashes()
     while len(peer.outstanding_requests) < 15:
         needed_piece = peer.torrent.assign_needed_piece()
