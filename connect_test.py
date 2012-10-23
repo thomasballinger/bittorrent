@@ -3,7 +3,7 @@ import socket
 
 from torrent import Torrent
 
-t = Torrent('test.torrent')
+t = Torrent('flagfromserver.torrent')
 print t.info_hash
 
 def connect():

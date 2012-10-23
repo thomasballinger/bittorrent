@@ -10,6 +10,8 @@ from torrent import Torrent
 from reactor_select import Reactor
 from sparsebitarray import SBA
 
+KEEP_ALIVE_TIME = 30
+
 class BittorrentClient(object):
     """
     >>> client = BittorrentClient()
@@ -170,12 +172,18 @@ class ActiveTorrent(Torrent):
         """how many copies of the full file are available from connected peers"""
         raise Exception("Not Yet Implemented")
 
-    def assign_needed_piece(self):
-        """Returns a block to be requested, and marks it as pending"""
+    def assign_needed_piece(self, peer=None):
+        """Returns a block to be requested, and marks it as pending
+
+        if a peer is provided, return a piece that we need that the peer has
+        """
         try:
             start = self.pending.find('0b0')[0]
         except IndexError:
             return False
+        if peer:
+            pending_pieces = []
+            available = peer.peer_bitarray & ~self.pending
         length = 2**14
         length = self.piece_length
         self.pending[start:(start+length)] = 2**length - 1
@@ -203,6 +211,7 @@ class Peer(object):
         self.dead = False
 
         self.last_received_data = time.time()
+        self.last_sent_data = time.time()
         #TODO don't use strings for buffers
         self.read_buffer = ''
         self.write_buffer = ''
@@ -274,6 +283,7 @@ class Peer(object):
     def write_event(self):
         """Action to take if socket comes up as ready to be written to"""
         while self.messages_to_send:
+            self.last_sent_data = time.time()
             self.write_buffer += str(self.messages_to_send.pop(0))
             #print 'what we\'re going to write:'
             #print repr(self.write_buffer)
@@ -409,6 +419,9 @@ def keep_asking_strategy(peer):
     if peer.torrent.num_bytes_have == peer.torrent.length:
         for p in peer.torrent.peers:
             p.strategy = cancel_all_strategy
+    now = time.time()
+    if now - peer.last_sent_data > KEEP_ALIVE_TIME:
+        peer.send_msg(msg.keepalive())
 
 def cancel_all_strategy(peer):
     peer.strategy = do_nothing_strategy
@@ -431,14 +444,14 @@ def respond_strategy(peer):
 
 def main():
     client = BittorrentClient()
-    torrent = client.add_torrent('localtest.torrent')
+    torrent = client.add_torrent('flagfromserver.torrent')
     torrent.tracker_update()
 
-    print torrent.tracker_peer_addresses
+    print 'got these peers from tracker:', torrent.tracker_peer_addresses
     external_ip = torrent.get_external_addr()
-    print 'removing', (external_ip, client.port)
+    print 'removing', (external_ip, client.port), 'if it appears because it looks like it\'s us'
     addresses = filter(lambda ipport:(external_ip, client.port) != ipport, torrent.tracker_peer_addresses)
-    print addresses
+    print 'so just using', addresses
 
     if not addresses:
         print 'no one else on tracker!'

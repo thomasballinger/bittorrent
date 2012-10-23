@@ -52,7 +52,7 @@ True
 68
 
 >>> m.bytestring
-'\x13BitTorrent Protocol\x00\x00\x00\x00\x00\x00\x00\x00aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbb'
+'\x13BitTorrent protocol\x00\x00\x00\x00\x00\x00\x00\x00aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbb'
 
 >>> msg.interested().bytestring
 '\x00\x00\x00\x01\x02'
@@ -229,7 +229,7 @@ class Msg(object):
         for att in MSG_ARGS[self.kind]:
             s += ', '
             if att == 'block':
-                s += att+'='+repr(getattr(self, att)[:30])+'...'
+                s += att+'='+repr(getattr(self, att)[:30])+('...' if len(getattr(self, att)) > 30 else '')
             else:
                 s += att+'='+repr(getattr(self, att))
         s += ')'
@@ -281,7 +281,7 @@ def parse_message(buff):
         if msg_id == 'T':
             raise Exception("Need to write a smarter parse function - this was likely a handshake!")
         kind = MSG_NUMS[msg_id]
-        #TODO add rest of messages
+        #TODO add rest of messages (port)
         if kind == 'bitfield':
             return Msg('bitfield', bitfield=buff[5:msg_length+4]), rest
         elif kind == 'piece':
