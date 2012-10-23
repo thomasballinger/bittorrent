@@ -76,6 +76,8 @@ class ActiveTorrent(Torrent):
         self.have_data = bitstring.BitArray(self.length)
         self.pending = bitstring.BitArray(self.length)
         self.checked = bitstring.BitArray(self.length)
+        self.written = bitstring.BitArray(self.length)
+        self.outputfilename = 'outputfile.jpg'
 
         #todo store this stuff on disk
         self.data = bytearray(self.length)
@@ -111,6 +113,18 @@ class ActiveTorrent(Torrent):
                     self.data[start:end] = '\x00'
                     self.pending[start:end] = 0
         return checked - failed
+
+    def write_checked_pieces(self):
+        for i in range(len(self.piece_hashes)):
+            if self.checked[i] and not self.written[i]:
+                self.written[i] = True
+                print 'writing file piece', i
+                start = i*self.piece_length
+                end = min((i+1)*(self.piece_length), self.length)
+                f = open(self.outputfilename, 'ab')
+                f.seek(i*self.piece_length)
+                f.write(self.data[start:end])
+                f.close()
 
     def load(self, filename):
         #TODO check hashes of all pieces
@@ -447,6 +461,7 @@ class Peer(object):
 
 def keep_asking_strategy(peer):
     peer.torrent.check_piece_hashes()
+    peer.torrent.write_checked_pieces()
     while len(peer.outstanding_requests) < 15:
         needed_piece = peer.torrent.assign_needed_piece()
         if needed_piece:
@@ -485,6 +500,8 @@ def main():
     torrent = client.add_torrent('flagfromserver.torrent')
     #torrent = client.add_torrent('test.torrent')
     torrent.tracker_update()
+
+    print 'file length:', torrent.length
 
     print 'got these peers from tracker:', torrent.tracker_peer_addresses
     external_ip = torrent.get_external_addr()
