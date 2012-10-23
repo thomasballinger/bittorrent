@@ -74,6 +74,7 @@ class ActiveTorrent(Torrent):
         #todo use a more efficient way to store what portions of pieces we have
         self.have_data = bitstring.BitArray(self.length)
         self.pending = bitstring.BitArray(self.length)
+        self.checked = bitstring.BitArray(self.length)
 
         #todo store this stuff on disk
         self.data = bytearray(self.length)
@@ -88,19 +89,24 @@ class ActiveTorrent(Torrent):
         checked = 0
         failed = 0
         for i, piece_hash in enumerate(self.piece_hashes):
-            print i, repr(piece_hash)
+            if self.checked[i]:
+                checked += 1
+                continue
             start = i*self.piece_length
             end = min((i+1)*(self.piece_length), self.length)
             if all(self.have_data[start:end]):
                 checked += 1
                 piece_hash = sha.new(self.data[start:end]).digest()
                 if piece_hash != self.piece_hashes[i]:
+                    self.checked[i] = True
+                else:
                     print 'hash check failed!'
                     print 'throwing out piece', i
                     print '(bytes', start,'up to', end, ')'
                     failed += 1
                     self.have_data[start:end] = 0
                     self.data[start:end] = '\x00'
+                    self.pending[start:end] = 0
         return checked - failed
 
     def load(self, filename):
@@ -264,6 +270,7 @@ class Peer(object):
         self.choked = True
         self.peer_choked = False
         self.peer_bitfield = bitstring.BitArray(len(active_torrent.piece_hashes))
+        #self.peer_bitfield = bitstring.BitArray((len(active_torrent.piece_hashes)+7) / 8 * 8)
 
     def __repr__(self):
         if self.torrent:
@@ -365,7 +372,7 @@ class Peer(object):
             print 'pending requests:', index, begin, time.time() - t_sent
 
     def run_strategy(self):
-        #print 'running strategy', self.strategy.__name__
+        print 'running strategy', self.strategy.__name__
         self.strategy(self)
 
     def process_all_messages(self):
@@ -396,7 +403,10 @@ class Peer(object):
             pass
         elif m.kind == 'bitfield':
             old_bitfield = self.peer_bitfield
-            self.peer_bitfield = bitstring.BitArray(bytes=m.bitfield)
+            temp = bitstring.BitArray(bytes=m.bitfield)
+            self.peer_bitfield = temp[:len(self.torrent.piece_hashes)]
+            print 'initialized bitfield:', len(old_bitfield)
+            print 'bitfield from peer:', len(self.peer_bitfield)
             assert len(old_bitfield) == len(self.peer_bitfield)
         elif m.kind == 'unchoke':
             self.choked = False
@@ -434,13 +444,16 @@ class Peer(object):
         return m
 
 def keep_asking_strategy(peer):
+    print 'running strategy'
+    peer.torrent.check_piece_hashes()
     while len(peer.outstanding_requests) < 15:
         needed_piece = peer.torrent.assign_needed_piece()
         if needed_piece:
             peer.send_msg(needed_piece)
         else:
             break
-    if peer.torrent.num_bytes_have == peer.torrent.length:
+    #if peer.torrent.num_bytes_have == peer.torrent.length:
+    if peer.torrent.checked == len(peer.torrent.piece_hashes):
         for p in peer.torrent.peers:
             p.strategy = cancel_all_strategy
     now = time.time()
@@ -481,7 +494,10 @@ def main():
     if not addresses:
         print 'no one else on tracker!'
         return
-    peer = torrent.add_peer(*addresses[0])
+
+    print addresses
+    address = [x for x in addresses if x[0].startswith('9')][0]
+    peer = torrent.add_peer(*address)
     peer.connect()
     #peer = torrent.add_peer('', 8001)
     peer.send_msg(msg.interested())
