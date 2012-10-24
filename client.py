@@ -9,11 +9,10 @@ import bencode
 import bitstring
 
 import msg
+import strategy
 from torrent import Torrent
 from reactor_select import Reactor
 from sparsebitarray import SBA
-
-KEEP_ALIVE_TIME = 30
 
 class BittorrentClient(object):
     """
@@ -313,7 +312,7 @@ class Peer(object):
         self.reactor.reg_write(self.s)
 
     def respond(self):
-        self.strategy = respond_strategy
+        self.strategy = strategy.respond_strategy
         self.reactor.add_readerwriter(self.s.fileno(), self)
         self.reactor.reg_read(self.s)
         self.run_strategy()

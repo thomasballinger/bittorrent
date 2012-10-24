@@ -2,7 +2,6 @@ from client import BittorrentClient
 import msg
 import strategy
 
-
 def main():
     client = BittorrentClient()
     torrent = client.add_torrent('flagfromserver.torrent')
