@@ -1,10 +1,11 @@
-import bencode
 import sys
 import urllib
 import time
 import socket
 import sha
+import os
 
+import bencode
 import bitstring
 
 import msg
@@ -78,6 +79,8 @@ class ActiveTorrent(Torrent):
         self.checked = bitstring.BitArray(self.length)
         self.written = bitstring.BitArray(self.length)
         self.outputfilename = 'outputfile.jpg'
+        if os.path.exists(self.outputfilename):
+            os.remove(self.outputfilename)
 
         #todo store this stuff on disk
         self.data = bytearray(self.length)
@@ -102,6 +105,8 @@ class ActiveTorrent(Torrent):
                 piece_hash = sha.new(self.data[start:end]).digest()
                 if piece_hash == self.piece_hashes[i]:
                     self.checked[i] = True
+                    sys.stdout.write('hashing piece %d/%d                 \r' % (i+1, len(self.piece_hashes)))
+                    sys.stdout.flush()
                 else:
                     print 'hash check failed!'
                     print 'throwing out piece', i
@@ -118,7 +123,8 @@ class ActiveTorrent(Torrent):
         for i in range(len(self.piece_hashes)):
             if self.checked[i] and not self.written[i]:
                 self.written[i] = True
-                print 'writing file piece', i
+                sys.stdout.write('writing piece %d/%d                \r' % (i+1, len(self.piece_hashes)))
+                sys.stdout.flush()
                 start = i*self.piece_length
                 end = min((i+1)*(self.piece_length), self.length)
                 f = open(self.outputfilename, 'ab')
@@ -197,7 +203,7 @@ class ActiveTorrent(Torrent):
         self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = 2**(len(block))-1
         self.data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = block
         self.num_bytes_have = self.have_data.count(1)
-        sys.stdout.write(('file now %02.2f' % self.percent()) + ' percent done\r')
+        sys.stdout.write('file now %02.2f percent done\r' % self.percent())
         sys.stdout.flush()
 
     def get_data_if_have(self, index, begin, length):
@@ -230,12 +236,12 @@ class ActiveTorrent(Torrent):
         if peer:
             pending_pieces = []
             available = peer.peer_bitarray & ~self.pending
-        length = 2**14
+        suggested_length = 2**14
         length = self.piece_length
         self.pending[start:(start+length)] = 2**length - 1
         index = start / self.piece_length
         begin = start % self.piece_length
-        length = min(length, self.length - start)
+        length = min(suggested_length, self.piece_length - start % self.piece_length)
         return msg.request(index=index, begin=begin, length=length)
 
 class Peer(object):
@@ -477,6 +483,7 @@ def keep_asking_strategy(peer):
         peer.send_msg(msg.keepalive())
 
 def cancel_all_strategy(peer):
+    print 'file download complete'
     peer.strategy = do_nothing_strategy
 
 def do_nothing_strategy(peer):
