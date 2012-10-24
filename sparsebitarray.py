@@ -3,11 +3,11 @@ Sparse (really Frequently Contiguous) Binary Array
 
 TODO:
 bitwise and would be really useful
-generalize to more than two possible values
 binary search to find overlapping segments
 
 """
 import bisect
+import sys
 class SBA(object):
     """Sparse BitArray, in which data is represented by indices of changes
     between runs of set and unset values
@@ -114,6 +114,39 @@ class SBA(object):
             self.changes = new_changes
         else:
             raise ValueError("Single element assignment not allowed")
+    def __and__(self, other):
+        """
+        >>> a = SBA(20); a[4:6] = True; a[10:16] = True;
+        >>> b = SBA(20); b[5:9] = True; b[11:18] = True;
+        >>> a; b; a & b
+        SparseBitArray('00001100001111110000')
+        SparseBitArray('00000111100111111100')
+        SparseBitArray('00000100000111110000')
+        """
+        self_index = 0
+        other_index = 0
+        new = SBA(self.length)
+        state = False
+        while True:
+            self_num = self.changes[self_index] if self_index < len(self.changes) else sys.maxint
+            other_num = other.changes[other_index] if other_index < len(other.changes) else sys.maxint
+            if self_num == other_num == sys.maxint:
+                break
+            if self_num <= other_num:
+                cur = self_num
+                self_index += 1
+                if self_num == other_num:
+                    continue
+            else:
+                cur = other_num
+                other_index += 1
+            if bool(self_index % 2) and bool(other_index % 2) and not state:
+                new.changes.append(cur)
+                state = True
+            elif state and not bool(self_index % 2 or not bool(other_index % 2)):
+                new.changes.append(cur)
+                state = False
+        return new
 
 if __name__ == '__main__':
     import doctest
