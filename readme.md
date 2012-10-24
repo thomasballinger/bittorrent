@@ -27,17 +27,18 @@ Todo
 * Maintain whether connection should be kept open, and keep it open if so
 * actually check hashes - so figure out when pieces are done
 * file access instead of in-memory file construction
+* throw away data in memory after write (need to use representation
+    other than a byte array
 
 ---done above this line---
 
-* throw away data in memory after write (need to use representation
-    other than a byte array
+* multiple file construction
 * Don't ask if they don't have the piece
+* Use more memory-efficient bitmaps (SBA)
 * make sure being choked / being unchoked works ok
 * correctly not be interested when peer has nothing we want
 * Read about and play with request size - presumably piece size is a max
    spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
-* Use more memory-efficient bitmaps (SBA)
 
 ------the I'm Done line------
 
@@ -46,7 +47,6 @@ Todo
 * game theory algorithms - karma
 * change announce params
 * endgame cancel messages
-* multiple file construction
 * Can requests spill across pieces?
 * profile to see if send operations are blocking (consider sending less data per)
 * Play with pipelineing for max DL speed
