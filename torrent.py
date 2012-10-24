@@ -140,8 +140,6 @@ class ActiveTorrent(Torrent):
 
         addr = self.announce_url
         full_url = addr + '?' + urllib.urlencode(announce_query_params)
-        print full_url
-        raw_input()
         print 'making request to', full_url
         response_data = bencode.bdecode(urllib.urlopen(full_url).read())
 

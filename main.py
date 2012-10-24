@@ -1,6 +1,7 @@
 from client import BittorrentClient
 import msg
 import strategy
+import ui
 
 def main():
     client = BittorrentClient()
@@ -28,6 +29,8 @@ def main():
     peer.send_msg(msg.interested())
     peer.strategy = strategy.keep_asking_strategy
     peer.run_strategy()
+    console = ui.console(client)
+    console.start()
     while True:
         r = client.reactor.poll(1)
         if r is None:
