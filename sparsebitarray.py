@@ -7,51 +7,32 @@ generalize to more than two possible values
 binary search to find overlapping segments
 
 """
+import bisect
 class SBA(object):
-    """Sparse BitArray, in which data is represented by ranges
+    """Sparse BitArray, in which data is represented by indices of changes
+    between runs of set and unset values
 
     >>> s = SBA(20); s
     SparseBitArray('00000000000000000000')
     """
     def __init__(self, length):
         self.length = length
-        self.set_ranges = []
+        self.changes = []
     def __len__(self):
         return self.length
     def __repr__(self):
         s = ''.join(str(int(x)) for x in self)
         return 'SparseBitArray(\'%s\')' % s
-    def _find_overlapping_ranges(self, start, end):
-        """Returns existing ranges that overlap or touch a new one
-
-        Returns a tuple of
-          * ranges entirely contained by the new start and end
-          * ranges over or at the edge of the new start and end
-          * the range, if any, that entirely contains the new start and end
-        """
-        #TODO use binary search instead here
-        edge_overlapping = []
-        contained_by_new = []
-        contains_new = None
-        for r_start, r_end in self.set_ranges:
-            if r_end < start or r_start > end:
-                pass
-            elif r_start <= start and r_end >= end:
-                contains_new = (r_start, r_end)
-                break
-            elif r_start >= start and r_end <= end:
-                contained_by_new.append((r_start, r_end))
-            elif start <= r_start <= end or start <= r_end <= end:
-                edge_overlapping.append((r_start, r_end))
-            else:
-                raise Exception("Logic Error!")
-        return contained_by_new, edge_overlapping, contains_new
     def _decode_slice(self, key):
         start, step, end = key.start, key.step, key.stop
         if start is None: start = 0
         if end is None: end = len(self)
         if step not in [None, 1]: raise ValueError("Custom steps not allowed: "+repr(key))
         return start, end
+    def _indices(self, start, end):
+        start_index = bisect.bisect_right(self.changes, start)
+        end_index = bisect.bisect_left(self.changes, end)
+        return start_index, end_index
 
     def __getitem__(self, key):
         """Get a slice or the value of an entry
@@ -71,30 +52,20 @@ class SBA(object):
         """
         if isinstance(key, slice):
             start, end = self._decode_slice(key)
-            contained_by, edge_overlaps, contains = self._find_overlapping_ranges(start, end)
+            start_index, end_index = self._indices(start, end)
             result = SBA(end - start)
-            if contains:
-                result[:] = True
-            for r_start, r_end in contained_by:
-                result.set_ranges.append((r_start - start, r_end - start))
-            for overlap_start, overlap_end in edge_overlaps:
-                if overlap_end == start or overlap_start == end:
-                    pass
-                elif overlap_end < end:
-                    result.set_ranges.append((0, overlap_end - start))
-                elif overlap_start > start:
-                    result.set_ranges.append((overlap_start - start, end - start))
-                else:
-                    raise Exception("Logic Error!")
+
+            if self[start]:
+                result.changes.append(0)
+
+            result.changes.extend( change - start for change in self.changes[start_index:end_index] )
+
             return result
         else:
-            if not 0 <= key < self.length:
-                raise IndexError
-            contained_by, edge_overlaps, contains = self._find_overlapping_ranges(key, key+1)
-            if contained_by or contains:
-                return True
-            else:
-                return False
+            if key >= len(self):
+                raise IndexError(key)
+
+            return bool(bisect.bisect_right(self.changes, key) % 2)
 
     def __setitem__(self, key, value):
         """Sets item or slice to True or False
@@ -128,37 +99,19 @@ class SBA(object):
         """
         if isinstance(key, slice):
             start, end = self._decode_slice(key)
-            contained_by, edge_overlaps, contains = self._find_overlapping_ranges(start, end)
-            if contains:
-                if not value:
-                    self.set_ranges.remove(contains)
-                    self.set_ranges.append((contains[0], start))
-                    self.set_ranges.append((end, contains[1]))
-                return
-            if value:
-                for overlap_start, overlap_end in edge_overlaps:
-                    if overlap_start < start:
-                        start = overlap_start
-                        self.set_ranges.remove((overlap_start, overlap_end))
-                    elif overlap_end > end:
-                        end = overlap_end
-                        self.set_ranges.remove((overlap_start, overlap_end))
-                    else:
-                        raise Exception("Logic Error!")
-            else:
-                for overlap_start, overlap_end in edge_overlaps:
-                    if overlap_start < start:
-                        self.set_ranges.remove((overlap_start, overlap_end))
-                        self.set_ranges.append((overlap_start, start))
-                    elif overlap_end > end:
-                        self.set_ranges.remove((overlap_start, overlap_end))
-                        self.set_ranges.append((end, overlap_end))
-                    else:
-                        raise Exception("Logic Error!")
-            for set_range in contained_by:
-                self.set_ranges.remove(set_range)
-            if value:
-                self.set_ranges.append((start, end))
+            start_index, end_index = self._indices(start, end)
+
+            new_changes = self.changes[:start_index]
+
+            if bool(len(new_changes) % 2) != value:
+                new_changes.append(start)
+
+            if bool(end_index % 2) != value:
+                new_changes.append(end)
+
+            new_changes.extend(self.changes[end_index:])
+
+            self.changes = new_changes
         else:
             raise ValueError("Single element assignment not allowed")
 
