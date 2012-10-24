@@ -1,4 +1,4 @@
-"""Torrent file object
+"""Torrent file object, representing only data encoded in the torrent file
 
 >>> t = Torrent('./example.torrent'); t
 Torrent('./example.torrent')
@@ -9,7 +9,6 @@ Torrent('./example.torrent')
 import datetime
 import sha
 import bencode
-import socket
 
 class Torrent(object):
     """Torrent file data"""
