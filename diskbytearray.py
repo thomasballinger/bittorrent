@@ -18,8 +18,10 @@ class DiskArray(object):
         return self.length
     def __setitem__(self, key, value):
         start, length = self._decode_slice(key)
+        #print 'start, length:', start, length
         if len(value) != length:
             raise ValueError('bytes to be written do not match section size')
+        #print 'start', start
         self.f.seek(start)
         self.f.write(value)
         self.f.flush()
@@ -43,54 +45,58 @@ class MultiFileDiskArray(DiskArray):
         self.sizes = sizes
         self.files = files
         self.starts = [sum(self.sizes[:(i)]) for i in range(len(self.sizes))]
+        #print self.starts
         self.diskarrays = [DiskArray(size, fn) for size, fn in zip(sizes, files)]
         self.length = sum(sizes)
-        print self.sizes
-        print self.files
-        print self.starts
     def __setitem__(self, key, value):
         start, length = self._decode_slice(key)
         if len(value) != length:
             raise ValueError('bytes to be written do not match section size')
-        start_file_index = bisect.bisect_left(self.starts, start)
+        #print 'start', start
+        start_file_index = bisect.bisect_right(self.starts, start) - 1
+        #print 'start file index', start_file_index
         written = 0
         for file_index in range(start_file_index, len(self.files)):
             file_location = self.starts[file_index]
             file_size = self.sizes[file_index]
             da = self.diskarrays[file_index]
+            #print 'file location:', file_location
 
             start_in_file = start - file_location + written
             desired_write_end = start_in_file + length - written
             file_end_pos = min(desired_write_end, file_size)
-            print start_in_file
-            print file_end_pos
-            print value[written:written+(file_end_pos-start_in_file)]
+            #print 'writing', start_in_file, ':', file_end_pos, 'to', da
             da[start_in_file:file_end_pos] = value[written:written+(file_end_pos-start_in_file)]
+            written += file_end_pos - start_in_file
 
             if desired_write_end <= file_size:
                 break
     def __getitem__(self, key):
         start, length = self._decode_slice(key)
-        start_file_index = bisect.bisect_left(self.starts, start)
+        start_file_index = bisect.bisect_right(self.starts, start) - 1
         data = ''
         for file_index in range(start_file_index, len(self.files)):
             file_location = self.starts[file_index]
             file_size = self.sizes[file_index]
-            da = self.files[file_index]
+            da = self.diskarrays[file_index]
 
             start_in_file = start - file_location + len(data)
-            desired_write_end = start_in_file + length - len(data)
-            file_end_pos = min(desired_write_end, file_size)
-            print 'start', start_in_file
-            print 'end', file_end_pos
-            print 'data', da[0:10]
+            desired_read_end = start_in_file + length - len(data)
+            file_end_pos = min(desired_read_end, file_size)
             data += da[start_in_file:file_end_pos]
 
-            if desired_write_end <= file_size:
+            if desired_read_end <= file_size:
                 break
         return data
 
 if __name__ == '__main__':
     a = MultiFileDiskArray([10,10,10], ['a', 'b', 'c'])
-    a[:10] = 'abcdefghij'
-    print a[0:10]
+    s = 'abcdefghijklmno'
+    #a[:15] = 'abcdefghijklmno'
+    #print a[0:15] == s
+
+    print len(a)
+    a[5:25] = 'abcdefghijklmnopqrst'
+    print a[5:25]
+    print len(a)
+
