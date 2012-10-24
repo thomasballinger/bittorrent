@@ -46,6 +46,12 @@ class SBA(object):
             else:
                 raise Exception("Logic Error!")
         return contained_by_new, edge_overlapping, contains_new
+    def _decode_slice(self, key):
+        start, step, end = key.start, key.step, key.stop
+        if start is None: start = 0
+        if end is None: end = len(self)
+        if step not in [None, 1]: raise ValueError("Custom steps not allowed: "+repr(key))
+        return start, end
 
     def __getitem__(self, key):
         """Get a slice or the value of an entry
@@ -64,10 +70,7 @@ class SBA(object):
         (False, True)
         """
         if isinstance(key, slice):
-            start, step, end = key.start, key.step, key.stop
-            if start is None: start = 0
-            if end is None: end = len(self)
-            if step not in [None, 1]: raise ValueError("Custom steps not allowed: "+repr(key))
+            start, end = self._decode_slice(key)
             contained_by, edge_overlaps, contains = self._find_overlapping_ranges(start, end)
             result = SBA(end - start)
             if contains:
@@ -124,10 +127,7 @@ class SBA(object):
         SparseBitArray('11111111111111111111')
         """
         if isinstance(key, slice):
-            start, step, end = key.start, key.step, key.stop
-            if start is None: start = 0
-            if end is None: end = len(self)
-            if step not in [None, 1]: raise ValueError("Custom steps not allowed: "+repr(key))
+            start, end = self._decode_slice(key)
             contained_by, edge_overlaps, contains = self._find_overlapping_ranges(start, end)
             if contains:
                 if not value:
