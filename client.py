@@ -12,6 +12,7 @@ import msg
 import strategy
 from torrent import Torrent
 from reactor_select import Reactor
+from diskbytearray import DiskArray
 from sparsebitarray import SBA
 
 class BittorrentClient(object):
@@ -82,7 +83,8 @@ class ActiveTorrent(Torrent):
             os.remove(self.outputfilename)
 
         #todo store this stuff on disk
-        self.data = bytearray(self.length)
+        #self.data = bytearray(self.length)
+        self.data = DiskArray(self.length, self.outputfilename)
         self.bitfield = bitstring.BitArray(len(self.piece_hashes))
 
         self.num_bytes_have = 0
@@ -114,22 +116,9 @@ class ActiveTorrent(Torrent):
                     print 'calculated:', piece_hash
                     failed += 1
                     self.have_data[start:end] = 0
-                    self.data[start:end] = '\x00'
+                    self.data[start:end] = '\x00'*(end-start)
                     self.pending[start:end] = 0
         return checked - failed
-
-    def write_checked_pieces(self):
-        for i in range(len(self.piece_hashes)):
-            if self.checked[i] and not self.written[i]:
-                self.written[i] = True
-                sys.stdout.write('writing piece %d/%d                \r' % (i+1, len(self.piece_hashes)))
-                sys.stdout.flush()
-                start = i*self.piece_length
-                end = min((i+1)*(self.piece_length), self.length)
-                f = open(self.outputfilename, 'ab')
-                f.seek(i*self.piece_length)
-                f.write(self.data[start:end])
-                f.close()
 
     def load(self, filename):
         #TODO check hashes of all pieces
