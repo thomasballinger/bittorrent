@@ -11,7 +11,7 @@ class SBA(object):
     """Sparse BitArray, in which data is represented by ranges
 
     >>> s = SBA(20); s
-    <SparseBitArray of length 20, all bits cleared>
+    SparseBitArray('00000000000000000000')
     """
     def __init__(self, length):
         self.length = length
@@ -19,14 +19,8 @@ class SBA(object):
     def __len__(self):
         return self.length
     def __repr__(self):
-        s = '<SparseBitArray of length %d, ' % self.length
-        if not self.set_ranges:
-            s += 'all bits cleared>'
-        elif self.set_ranges == [(0, self.length)]:
-            s += 'all bits set>'
-        else:
-            s += str(self.set_ranges)+'>'
-        return s
+        s = ''.join(str(int(x)) for x in self)
+        return 'SparseBitArray(\'%s\')' % s
     def _find_overlapping_ranges(self, start, end):
         """Returns existing ranges that overlap or touch a new one
 
@@ -57,15 +51,15 @@ class SBA(object):
         """Get a slice or the value of an entry
 
         >>> s = SBA(20); s[2:6] = True; s
-        <SparseBitArray of length 20, [(2, 6)]>
+        SparseBitArray('00111100000000000000')
         >>> s[2:6]
-        <SparseBitArray of length 4, all bits set>
+        SparseBitArray('1111')
         >>> s[4:10]
-        <SparseBitArray of length 6, [(0, 2)]>
+        SparseBitArray('110000')
         >>> s[9:14] = True; s[17:19] = True; s
-        <SparseBitArray of length 20, [(2, 6), (9, 14), (17, 19)]>
+        SparseBitArray('00111100011111000110')
         >>> s[2:18]
-        <SparseBitArray of length 16, [(0, 4), (7, 12), (15, 16)]>
+        SparseBitArray('1111000111110001')
         >>> s[1], s[10]
         (False, True)
         """
@@ -91,6 +85,8 @@ class SBA(object):
                     raise Exception("Logic Error!")
             return result
         else:
+            if not 0 <= key < self.length:
+                raise IndexError
             contained_by, edge_overlaps, contains = self._find_overlapping_ranges(key, key+1)
             if contained_by or contains:
                 return True
@@ -101,31 +97,31 @@ class SBA(object):
         """Sets item or slice to True or False
 
         >>> s = SBA(20); s[2:6] = True; s
-        <SparseBitArray of length 20, [(2, 6)]>
+        SparseBitArray('00111100000000000000')
         >>> s[4:10] = True; s
-        <SparseBitArray of length 20, [(2, 10)]>
+        SparseBitArray('00111111110000000000')
         >>> s[3:11] = False; s
-        <SparseBitArray of length 20, [(2, 3)]>
+        SparseBitArray('00100000000000000000')
         >>> s[4:14] = True; s
-        <SparseBitArray of length 20, [(2, 3), (4, 14)]>
+        SparseBitArray('00101111111111000000')
         >>> s[8:11] = False; s
-        <SparseBitArray of length 20, [(2, 3), (4, 8), (11, 14)]>
+        SparseBitArray('00101111000111000000')
         >>> s[5:7] = True; s
-        <SparseBitArray of length 20, [(2, 3), (4, 8), (11, 14)]>
+        SparseBitArray('00101111000111000000')
         >>> s[15:18] = False; s
-        <SparseBitArray of length 20, [(2, 3), (4, 8), (11, 14)]>
+        SparseBitArray('00101111000111000000')
         >>> s[14:16] = False; s
-        <SparseBitArray of length 20, [(2, 3), (4, 8), (11, 14)]>
+        SparseBitArray('00101111000111000000')
         >>> s[14:16] = True; s
-        <SparseBitArray of length 20, [(2, 3), (4, 8), (11, 16)]>
+        SparseBitArray('00101111000111110000')
         >>> s[4:] = True; s
-        <SparseBitArray of length 20, [(2, 3), (4, 20)]>
+        SparseBitArray('00101111111111111111')
         >>> s[:10] = False; s
-        <SparseBitArray of length 20, [(10, 20)]>
+        SparseBitArray('00000000001111111111')
         >>> s[:] = False; s
-        <SparseBitArray of length 20, all bits cleared>
+        SparseBitArray('00000000000000000000')
         >>> s[:] = True; s
-        <SparseBitArray of length 20, all bits set>
+        SparseBitArray('11111111111111111111')
         """
         if isinstance(key, slice):
             start, step, end = key.start, key.step, key.stop

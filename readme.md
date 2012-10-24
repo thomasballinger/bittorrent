@@ -26,9 +26,12 @@ Todo
 
 * Maintain whether connection should be kept open, and keep it open if so
 * actually check hashes - so figure out when pieces are done
+* file access instead of in-memory file construction
+
 ---done above this line---
 
-* file access instead of in-memory file construction
+* throw away data in memory after write (need to use representation
+    other than a byte array
 * Don't ask if they don't have the piece
 * make sure being choked / being unchoked works ok
 * correctly not be interested when peer has nothing we want
@@ -40,7 +43,6 @@ Todo
 
 * Figure out which peers to get which file pieces from
     (random is reasonable acc. to spec)
-* choose file pieces more intelligently
 * game theory algorithms - karma
 * change announce params
 * endgame cancel messages
