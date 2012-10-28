@@ -69,7 +69,7 @@ class Peer(object):
     def send_msg(self, *messages):
         for m in messages:
             if m.kind == 'request':
-                self.outstanding_requests[(m.index, m.begin)] = time.time()
+                self.outstanding_requests[m] = time.time()
         self.messages_to_send.extend(messages)
         #print 'message queue now looks like:', self.messages_to_send
         self.reactor.reg_write(self.s)
@@ -144,6 +144,7 @@ class Peer(object):
             print '... but was already dead/dieing'
             raise Exception("Double Death")
         self.dead = True
+        self.return_outstanding_requests()
         self.reactor.unreg_write(self.s)
         self.reactor.unreg_read(self.s)
         self.reactor.cancel_timers(self)
@@ -154,11 +155,15 @@ class Peer(object):
             self.client.kill_peer(self)
 
     def check_outstanding_requests(self):
-        for (index, begin), t_sent in self.outstanding_requests.iteritems():
-            print 'pending requests:', index, begin, time.time() - t_sent
+        for m, t_sent in self.outstanding_requests.iteritems():
+            print 'pending requests:', m.index, m.begin, m.length, time.time() - t_sent
+
+    def return_outstanding_requests(self):
+        for m, t_sent in self.outstanding_requests.iteritems():
+            self.torrent.return_outstanding_request(m)
 
     def run_strategy(self):
-        #print 'running strategy', self.strategy.__name__
+        print 'running strategy', self.strategy.__name__
         self.strategy(self)
 
     def process_all_messages(self):
@@ -220,7 +225,7 @@ class Peer(object):
                 print 'peer requesting piece despite not sending interested, so not sending it'
         elif m.kind == 'piece':
             #print 'receiving data'
-            del self.outstanding_requests[(m.index, m.begin)]
+            del self.outstanding_requests[msg.request(m.index, m.begin, len(m.block))]
             self.torrent.add_data(m.index, m.begin, m.block)
         else:
             print 'didn\'t correctly process', repr(m)

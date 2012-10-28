@@ -1,4 +1,5 @@
 import time
+import weakref
 import socket
 from torrent import ActiveTorrent
 from reactor_select import Reactor
@@ -43,7 +44,7 @@ class BittorrentClient(object):
     def add_torrent(self, filename):
         t = ActiveTorrent(filename, self)
         self.torrents.append(t)
-        return t
+        return weakref.proxy(t)
 
     def move_to_torrent(self, peer, info_hash):
         for torrent in self.torrents:

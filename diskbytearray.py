@@ -90,6 +90,8 @@ class MultiFileDiskArray(DiskArray):
         return data
 
 if __name__ == '__main__':
+    a = DiskArray(100, '/tmp/somthing')
+    a[40:45] = '\x00\x00\x00\x00e'
     a = MultiFileDiskArray([10,10,10], ['a', 'b', 'c'])
     s = 'abcdefghijklmno'
     #a[:15] = 'abcdefghijklmno'

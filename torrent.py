@@ -13,6 +13,7 @@ import os
 import urllib
 import sys
 import socket
+import weakref
 
 import bitstring
 
@@ -161,7 +162,8 @@ class ActiveTorrent(Torrent):
         s = socket.socket()
         port = 80
         addr = self.announce_url
-        if ':' in self.announce_url:
+        print self.announce_url
+        if self.announce_url.count(':') == 2:
             _, first, rest = self.announce_url.split(':')
             addr = first.split('/')[-1]
             port = rest.split('/')[0]
@@ -174,7 +176,7 @@ class ActiveTorrent(Torrent):
     def add_peer(self, ip, port):
         p = Peer((ip, port), active_torrent=self)
         self.peers.append(p)
-        return p
+        return weakref.proxy(p)
 
     def kill_peer(self, peer):
         self.peers.remove(peer)
@@ -209,6 +211,7 @@ class ActiveTorrent(Torrent):
 
         if a peer is provided, return a piece that we need that the peer has
         """
+        print 'looking for needed piece'
         try:
             start = self.pending.find('0b0')[0]
         except IndexError:
@@ -223,6 +226,10 @@ class ActiveTorrent(Torrent):
         begin = start % self.piece_length
         length = min(suggested_length, self.piece_length - start % self.piece_length)
         return msg.request(index=index, begin=begin, length=length)
+
+    def return_outstanding_request(self, m):
+        print repr(m)
+        self.pending[m.begin:(m.begin+m.length)] = 0
 
 def test():
     import doctest

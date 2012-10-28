@@ -223,6 +223,7 @@ class Msg(object):
     def __mul__(self, other): return self.bytestring.__mul__(other)
     def __rmul__(self, other): return self.bytestring.__rmul__(other)
     def __str__(self): return self.bytestring
+    def __hash__(self): return hash(self.bytestring)
 
     def __repr__(self):
         s = 'Msg(\''+self.kind+'\''
@@ -317,12 +318,13 @@ def messages_and_rest(buff):
             messages.append(m)
 
 # global convenience functions
-def keep_alive():
-    return Msg('keep_alive')
+def keep_alive(): return Msg('keep_alive')
+def keepalive(): return Msg('keep_alive')
 def choke(): return Msg('choke')
 def unchoke(): return Msg('unchoke')
 def interested(): return Msg('interested')
 def not_interested(): return Msg('not_interested')
+def notinterested(): return Msg('not_interested')
 def have(index): return Msg('have', index=index)
 def bitfield(bitfield): return Msg('bitfield', bitfield=bitfield)
 def request(index, begin, length): return Msg('request', index=index, begin=begin, length=length)
