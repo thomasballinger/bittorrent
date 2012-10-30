@@ -5,9 +5,9 @@ import ui
 
 def main():
     client = BittorrentClient()
-    #torrent = client.add_torrent('flagfromserver.torrent')
+    torrent = client.add_torrent('flagfromserver.torrent')
     #torrent = client.add_torrent('test.torrent')
-    torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
+    #torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
     torrent.tracker_update()
 
     print 'file length:', torrent.length
@@ -23,8 +23,8 @@ def main():
         return
 
     print addresses
-    #address = [x for x in addresses if x[0].startswith('9')][0]
-    address = addresses[10]
+    address = [x for x in addresses if x[0].startswith('9')][0]
+    #address = addresses[1]
     peer = torrent.add_peer(*address)
     peer.connect()
     #peer = torrent.add_peer('', 8001)

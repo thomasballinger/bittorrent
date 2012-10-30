@@ -155,8 +155,10 @@ class Peer(object):
             self.client.kill_peer(self)
 
     def check_outstanding_requests(self):
+        print '---pending requests---'
         for m, t_sent in self.outstanding_requests.iteritems():
-            print 'pending requests:', m.index, m.begin, m.length, time.time() - t_sent
+            print m.index, m.begin, m.length, time.time() - t_sent
+        print '----------------------'
 
     def return_outstanding_requests(self):
         for m, t_sent in self.outstanding_requests.iteritems():

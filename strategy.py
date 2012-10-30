@@ -8,7 +8,7 @@ def keep_asking_strategy(peer):
         print 'asking for another'
         needed_piece = peer.torrent.assign_needed_piece()
         if needed_piece:
-            print 'needed_piece:', needed_piece
+            print 'needed_piece:', repr(needed_piece)
             peer.send_msg(needed_piece)
         else:
             break
