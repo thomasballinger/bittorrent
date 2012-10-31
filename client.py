@@ -4,6 +4,7 @@ import socket
 from torrent import ActiveTorrent
 from reactor_select import Reactor
 from peer import Peer
+from network import AcceptConnection
 
 class BittorrentClient(object):
     """
@@ -18,20 +19,13 @@ class BittorrentClient(object):
         self.port = listen_port
         self.torrents = []
         self.reactor = Reactor()
-        self.start_listen()
-
-    def start_listen(self):
-        self.listen_socket = socket.socket()
-        self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listen_socket.setblocking(False)
-        self.listen_socket.bind(('', self.port))
-        self.listen_socket.listen(5)
-        self.reactor.add_readerwriter(self.listen_socket.fileno(), self)
-        self.reactor.reg_read(self.listen_socket.fileno())
+        self.connection = AcceptConnection('', self.port, self.reactor, self)
         self.pending_connections = []
 
-    def read_event(self):
-        s, (ip, port) = self.listen_socket.accept()
+    def die():
+        raise Exception("Client dieing not yet implemented")
+
+    def receive_incoming_connection(self, s, ip, port):
         print 'receiving incoming connection from', ip, port
         p = Peer((ip, port), client=self)
         p.respond(s)

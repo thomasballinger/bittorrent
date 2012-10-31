@@ -5,6 +5,27 @@ import msg
 
 WAIT_TO_CONNECT = 8
 KEEP_ALIVE_TIME = 20
+
+class AcceptConnection(object):
+    def __init__(self, ip, port, reactor, object):
+        self.object = object
+        self.ip = ip
+        self.port = port
+        self.sock = socket.socket()
+        self.reactor = reactor
+
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.setblocking(False)
+        self.sock.bind((self.ip, self.port))
+        self.sock.listen(5)
+
+        self.reactor.add_readerwriter(self.sock.fileno(), self)
+        self.reactor.reg_read(self.sock.fileno())
+
+    def read_event(self):
+        s, (ip, port) = self.sock.accept()
+        self.object.receive_incoming_connection(s, ip, port)
+
 class MsgConnection(object):
     """Translation layer from msg objects to the tcp wire
 

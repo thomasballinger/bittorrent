@@ -22,10 +22,10 @@ def loop(client):
 
 def CLI():
     import sys
-    torrentfile = 'test.torrent'
+    #torrentfile = 'test.torrent'
     #torrentfile = '/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent'
     #torrentfile = '/Users/tomb/Downloads/soulpurge - broken heart ep.torrent'
-    #torrentfile = 'flagfromserver.torrent'
+    torrentfile = 'flagfromserver.torrent'
     datafile = 'flag.jpg'
     if len(sys.argv) > 1 and sys.argv[1] == 'seed':
         seed(torrentfile, datafile)
