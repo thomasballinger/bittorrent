@@ -6,7 +6,7 @@ import bitstring
 import msg
 import peerstrategy
 
-REQUEST_MSG_TIMEOUT = 60
+REQUEST_MSG_TIMEOUT = 120
 
 class Peer(object):
     """Represents a connection to a peer regarding a specific torrent
@@ -103,7 +103,9 @@ class Peer(object):
 
     def write_event(self):
         """Action to take if socket comes up as ready to be written to"""
-        self.connected = True
+        if not self.connected:
+            print self, 'has connected!'
+            self.connected = True
         while self.messages_to_send:
             self.last_sent_data = time.time()
             self.write_buffer += str(self.messages_to_send.pop(0))
@@ -164,13 +166,15 @@ class Peer(object):
 
     def check_outstanding_requests(self):
         now = time.time()
-        for m, t_sent in self.outstanding_requests.iteritems():
+        for m, t_sent in list(self.outstanding_requests.iteritems()):
             t = now - t_sent
             if t > REQUEST_MSG_TIMEOUT:
-                print 'canceling message which has been outstanding for over a minute:',
+                #print 'canceling message which has been outstanding for over a minute:',
+                print 'outstanding request!'
                 print m.index, m.begin, m.length, time.time() - t_sent
-                self.send_msg(msg.cancel(m.index, m.begin, m.length))
-                self.return_outstanding_request(m)
+                #self.send_msg(msg.cancel(m.index, m.begin, m.length))
+                #self.torrent.return_outstanding_request(m)
+                #del self.outstanding_requests[msg.request(m.index, m.begin, m.length)]
 
     def return_outstanding_requests(self):
         for m, t_sent in self.outstanding_requests.iteritems():
@@ -232,7 +236,6 @@ class Peer(object):
             self.peer_interested = False
         elif m.kind == 'have':
             self.peer_bitfield[m.index] = 1
-            #print 'know we know peer has piece', m.index
         elif m.kind == 'request':
             #TODO prove this won't happen when we don't yet have an associated torrent,
             # or throw a nice error
@@ -249,11 +252,12 @@ class Peer(object):
             else:
                 print 'peer requesting piece despite not sending interested, so not sending it'
         elif m.kind == 'piece':
-            #print 'receiving data'
-            del self.outstanding_requests[msg.request(m.index, m.begin, len(m.block))]
+            try:
+                del self.outstanding_requests[msg.request(m.index, m.begin, len(m.block))]
+            except KeyError:
+                print 'got a request back that we had canceled - oh well!'
             self.torrent.add_data(m.index, m.begin, m.block)
         else:
             print 'didn\'t correctly process', repr(m)
             raise Exception('missed a message: ')
         return m
-

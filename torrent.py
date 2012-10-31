@@ -100,10 +100,9 @@ class ActiveTorrent(Torrent):
 
         # Placeholder strategy
         self.strategy = lambda x: False
-        self.client.reactor.start_timer(0, self)
+        self.client.reactor.start_timer(1, self)
 
     def timer_event(self):
-        print 'timer event up for', self
         self.run_strategy()
         self.client.reactor.start_timer(10, self)
 
@@ -268,7 +267,7 @@ class ActiveTorrent(Torrent):
         return msg.request(index=index, begin=begin, length=length)
 
     def return_outstanding_request(self, m):
-        print repr(m)
+        print 'returning', repr(m)
         self.pending[m.begin:(m.begin+m.length)] = 0
 
 def test():

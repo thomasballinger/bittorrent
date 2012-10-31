@@ -8,7 +8,7 @@ def keep_asking_strategy(peer):
         peer.interested = True
 
     if not peer.choked:
-        while len(peer.outstanding_requests) < 15:
+        while len(peer.outstanding_requests) < 10:
             needed_piece = peer.torrent.assign_needed_piece()
             if needed_piece:
                 #print 'torrent needed_piece:', repr(needed_piece)

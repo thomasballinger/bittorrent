@@ -41,7 +41,9 @@ Todo
 * make sure being choked / being unchoked works ok
 * correctly not be interested when peer has nothing we want
 * Read about and play with request size - presumably piece size is a max
-   spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
+    spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
+* look at the problems we were having with high pipeline number
+    and lower timed out request time
 
 ------the I'm Done line------
 
@@ -49,7 +51,8 @@ Todo
     (random is reasonable acc. to spec)
 * game theory algorithms - karma
 * change announce params, update more than once
-* strategy for torrent choosing peers, keep records of which peers worked
+* strategy for torrent choosing peers, keep records of which peers worked, keep
+    ask tracker for new peers periodically
 * Can requests spill across pieces?
 * profile to see if send operations are blocking (consider sending less data per)
 * Play with pipelineing for max DL speed

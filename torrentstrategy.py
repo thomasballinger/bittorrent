@@ -33,5 +33,3 @@ class connect_and_ask_n_peers(object):
                     peer.strategy = peerstrategy.keep_asking_strategy
                     self.addr_index += 1
     __name__ = property(get_name)
-
-connect_and_ask = connect_and_ask_n_peers(5)
