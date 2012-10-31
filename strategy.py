@@ -3,13 +3,14 @@ KEEP_ALIVE_TIME = 30
 import msg
 def keep_asking_strategy(peer):
     peer.torrent.check_piece_hashes()
-    while len(peer.outstanding_requests) < 15:
-        needed_piece = peer.torrent.assign_needed_piece()
-        if needed_piece:
-            print 'torrent needed_piece:', repr(needed_piece)
-            peer.send_msg(needed_piece)
-        else:
-            break
+    if not peer.choked:
+        while len(peer.outstanding_requests) < 15:
+            needed_piece = peer.torrent.assign_needed_piece()
+            if needed_piece:
+                print 'torrent needed_piece:', repr(needed_piece)
+                peer.send_msg(needed_piece)
+            else:
+                break
     if peer.torrent.piece_checked.count(1) == len(peer.torrent.piece_hashes):
         for p in peer.torrent.peers:
             p.strategy = cancel_all_strategy

@@ -5,9 +5,9 @@ import ui
 
 def main():
     client = BittorrentClient()
-    torrent = client.add_torrent('flagfromserver.torrent')
+    #torrent = client.add_torrent('flagfromserver.torrent')
     #torrent = client.add_torrent('test.torrent')
-    #torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
+    torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
     torrent.tracker_update()
 
     print 'file length:', torrent.length
