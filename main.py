@@ -4,9 +4,6 @@ import torrentstrategy
 def leech(torrentfilename):
     client = BittorrentClient()
     torrent = client.add_torrent(torrentfilename)
-    #torrent = client.add_torrent('test.torrent')
-    #torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
-    #torrent = client.add_torrent('/Users/tomb/Downloads/soulpurge - broken heart ep.torrent')
     torrent.strategy = torrentstrategy.connect_and_ask_n_peers(15)
     loop(client)
 
@@ -25,7 +22,10 @@ def loop(client):
 
 def CLI():
     import sys
-    torrentfile = 'flagfromserver.torrent'
+    torrentfile = 'test.torrent'
+    #torrentfile = '/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent'
+    #torrentfile = '/Users/tomb/Downloads/soulpurge - broken heart ep.torrent'
+    #torrentfile = 'flagfromserver.torrent'
     datafile = 'flag.jpg'
     if len(sys.argv) > 1 and sys.argv[1] == 'seed':
         seed(torrentfile, datafile)
