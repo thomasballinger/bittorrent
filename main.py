@@ -1,6 +1,6 @@
 from client import BittorrentClient
-
 import torrentstrategy
+
 
 def main():
     client = BittorrentClient()
@@ -9,11 +9,11 @@ def main():
     #torrent = client.add_torrent('/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent')
     torrent = client.add_torrent('/Users/tomb/Downloads/soulpurge - broken heart ep.torrent')
     torrent.strategy = torrentstrategy.connect_and_ask_n_peers(15)
+    loop(client)
 
+def loop(client):
     while True:
         r = client.reactor.poll(1)
-        for peer in torrent.peers:
-            peer.check_outstanding_requests()
         if r is None:
             return
 

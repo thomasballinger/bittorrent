@@ -1,23 +1,15 @@
 
 import threading
 import sys
-import time
+from bpython import cli
 
 class console(threading.Thread):
     def __init__(self, client):
         threading.Thread.__init__(self)
+        self.daemon = True
         self.client = client
         self.die = False
 
     def run(self):
-        while True:
-            print self.client
-            print self.client.torrents
-            s = raw_input('> ')
-            if s == 'die':
-                self.die = True
-
-
-            if self.die:
-                sys.exit()
-
+        client = self.client
+        cli.main(locals_=locals())
