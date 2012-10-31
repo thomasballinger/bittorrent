@@ -6,7 +6,7 @@ import msg
 WAIT_TO_CONNECT = 8
 KEEP_ALIVE_TIME = 20
 
-class AcceptConnection(object):
+class AcceptingConnection(object):
     def __init__(self, ip, port, reactor, object):
         self.object = object
         self.ip = ip

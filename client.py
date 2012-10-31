@@ -1,10 +1,9 @@
 import time
 import weakref
-import socket
 from torrent import ActiveTorrent
 from reactor_select import Reactor
 from peer import Peer
-from network import AcceptConnection
+from network import AcceptingConnection
 
 class BittorrentClient(object):
     """
