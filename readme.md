@@ -44,6 +44,8 @@ Todo
     spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
 * look at the problems we were having with high pipeline number
     and lower timed out request time
+* loading of incomplete files so DLs can be resumed
+    either write metadata to disk or guess via runs of 0 bytes
 
 ------the I'm Done line------
 
