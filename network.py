@@ -10,7 +10,7 @@ class MsgConnection(object):
 
     Sends and receives messages as msg objects
     """
-    def __init__(self, ip, port, reactor, object):
+    def __init__(self, ip, port, reactor, object, sock=None):
         self.object = object
         self.ip = ip
         self.port = port
@@ -20,7 +20,7 @@ class MsgConnection(object):
         self.write_buffer = ''
         self.read_buffer = ''
         #TODO don't use strings for buffers
-        self.connect()
+        self.connect(sock=sock)
 
     def send_msg(self, *messages):
         assert isinstance(messages[0], msg.Msg)
@@ -33,15 +33,18 @@ class MsgConnection(object):
         self.reactor.cancel_timers(self)
         self.s.close()
 
-    def connect(self):
+    def connect(self, sock=None):
         """Establishes TCP connection to peer and sends handshake and bitfield"""
-        self.s = socket.socket()
-        print 'connecting to', self.ip, 'on port', self.port, '...'
-        self.s.setblocking(False)
-        try:
-            self.s.connect((self.ip, self.port))
-        except socket.error:
-            pass #TODO check that it's actually the right error
+        if sock: # then we're responding to a peer
+            self.s = sock
+        else:
+            self.s = socket.socket()
+            print 'connecting to', self.ip, 'on port', self.port, '...'
+            self.s.setblocking(False)
+            try:
+                self.s.connect((self.ip, self.port))
+            except socket.error:
+                pass #TODO check that it's actually the right error
         self.connect_started = time.time()
         self.reactor.add_readerwriter(self.s.fileno(), self)
         self.reactor.reg_write(self.s)

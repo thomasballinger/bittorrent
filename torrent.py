@@ -144,12 +144,13 @@ class ActiveTorrent(Torrent):
         return checked_out
 
     def load(self, filename):
-        #TODO check hashes of all pieces
+        if os.path.isdir(filename):
+            raise Exception("loading from multiple files not yet implemented")
         self.have_data[:] = 2**(self.length)-1
         self.data[:] = open(filename, 'rb').read()
         self.num_bytes_have = self.have_data.count(1)
         assert self.num_bytes_have == self.length
-        assert self.check_piece_hashes() == len(self.piece_hashes)
+        #assert self.check_piece_hashes() == len(self.piece_hashes)
 
     def tracker_update(self):
         """Returns data from Tracker specified in torrent"""
@@ -173,6 +174,7 @@ class ActiveTorrent(Torrent):
         full_url = addr + '?' + urllib.urlencode(announce_query_params)
         print 'making request to', full_url
         response_data = bencode.bdecode(urllib.urlopen(full_url).read())
+        print 'response returned'
 
         self.last_tracker_update = time.time()
         self.tracker_min_interval = response_data.get('min interval', None)

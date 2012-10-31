@@ -27,13 +27,12 @@ def do_nothing_strategy(peer):
 def respond_strategy(peer):
     """Respond strategy is initially for peers not yet connected to a torrent"""
     print 'running respond strategy for', peer
-    if len(peer.read_buffer) > 68:
-        print 'dieing because more than 68 bytes in read buffer, after we should have tried to parse'
-        peer.die()
+
+    #TODO add something like this back
+    #if len(peer.read_buffer) > 68:
+        #print 'dieing because more than 68 bytes in read buffer, after we should have tried to parse'
+        #peer.die()
     if peer.handshake:
         print 'switching to do_nothing_strategy'
         peer.strategy = do_nothing_strategy
-        peer.send_msg(msg.handshake(info_hash=peer.torrent.info_hash, peer_id=peer.torrent.client.client_id))
-        peer.send_msg(msg.bitfield(peer.torrent.bitfield))
-        peer.send_msg(msg.unchoke())
 

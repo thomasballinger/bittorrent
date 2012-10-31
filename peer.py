@@ -23,10 +23,10 @@ class Peer(object):
         self.port = port
         self.connection = None
 
-        self.sent_handshake = False
         self.handshake = None
         self.connected = False
         self.dead = False
+        self.connection = None
 
         self.torrent = None
         #this might depend on the type of peer later
@@ -58,11 +58,15 @@ class Peer(object):
         self.peer_bitfield = bitstring.BitArray(len(active_torrent.piece_hashes))
         #self.peer_bitfield = bitstring.BitArray((len(active_torrent.piece_hashes)+7) / 8 * 8)
 
-        #TODO how does being handed a socket from the client listen socket work?
-        self.connection = MsgConnection(self.ip, self.port, self.reactor, self)
-
-        self.send_msg(msg.handshake(info_hash=self.torrent.info_hash, peer_id=self.torrent.client.client_id))
-        self.send_msg(msg.bitfield(self.torrent.bitfield))
+        #if we already have a connection, then we are responding to a peer connection
+        if self.connection:
+            self.send_msg(msg.handshake(info_hash=self.torrent.info_hash, peer_id=self.torrent.client.client_id))
+            self.send_msg(msg.bitfield(self.torrent.bitfield))
+        else:
+            self.connection = MsgConnection(self.ip, self.port, self.reactor, self)
+            self.send_msg(msg.handshake(info_hash=self.torrent.info_hash, peer_id=self.torrent.client.client_id))
+            self.send_msg(msg.bitfield(self.torrent.bitfield))
+            self.send_msg(msg.unchoke())
 
     def __repr__(self):
         if self.torrent:
@@ -78,11 +82,9 @@ class Peer(object):
                 self.outstanding_requests[m] = time.time()
         self.connection.send_msg(*messages)
 
-    #TODO catch this in the refactor part II
-    def respond(self):
+    def respond(self, s):
+        self.connection = MsgConnection(self.ip, self.port, self.reactor, self, s)
         self.strategy = peerstrategy.respond_strategy
-        self.reactor.add_readerwriter(self.s.fileno(), self)
-        self.reactor.reg_read(self.s)
         self.run_strategy()
 
     def timer_event(self):
@@ -170,7 +172,7 @@ class Peer(object):
                 data = self.torrent.get_data_if_have(m.index, m.begin, m.length)
                 if data:
                     m = msg.piece(m.index, m.begin, data)
-                    print 'sending', m, 'to', self
+                    #print 'sending', repr(m), 'to', self
                     self.send_msg(m)
                 else:
                     print self, 'was just asked for piece it didn\'t have'

@@ -10,8 +10,7 @@ def connect():
     s = socket.socket()
     s.connect(('', 6882))
     s.send(str(msg.handshake(info_hash=t.info_hash, peer_id='b'*20)))
-    print s.getsockname()
-    print s.getpeername()
+    print s.getsockname(), 'connected to', s.getpeername()
     return s
 
 from bpython import cli

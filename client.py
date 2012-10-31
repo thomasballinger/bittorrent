@@ -34,8 +34,7 @@ class BittorrentClient(object):
         s, (ip, port) = self.listen_socket.accept()
         print 'receiving incoming connection from', ip, port
         p = Peer((ip, port), client=self)
-        p.s = s
-        p.respond()
+        p.respond(s)
         self.pending_connections.append(p)
 
     def kill_peer(self, peer):
