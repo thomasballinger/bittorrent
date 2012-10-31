@@ -21,9 +21,6 @@ class BittorrentClient(object):
         self.connection = AcceptingConnection('', self.port, self.reactor, self)
         self.pending_connections = []
 
-    def die():
-        raise Exception("Client dieing not yet implemented")
-
     def receive_incoming_connection(self, s, ip, port):
         print 'receiving incoming connection from', ip, port
         p = Peer((ip, port), client=self)
