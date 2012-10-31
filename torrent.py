@@ -19,6 +19,8 @@ import bitstring
 
 from diskbytearray import DiskArray
 from sparsebitarray import SBA
+import torrentstrategy
+import peerstrategy
 
 import msg
 from peer import Peer
@@ -79,39 +81,58 @@ class ActiveTorrent(Torrent):
         self.data = DiskArray(self.length, self.outputfilename)
         self.piece_checked = bitstring.BitArray(len(self.piece_hashes))
         self.bitfield = bitstring.BitArray(len(self.piece_hashes))
+        self.last_tracker_update = 0
 
         self.num_bytes_have = 0
 
         self.peers = []
+        self.peer_histories = {}
+
+        # Placeholder strategy
+        self.strategy = lambda x: False
+        self.client.reactor.start_timer(0, self)
+
+    def timer_event(self):
+        print 'timer event up for', self
+        self.run_strategy()
+        self.client.reactor.start_timer(10, self)
+
+    def run_strategy(self):
+        print self, 'running strategy', self.strategy.__name__
+        self.strategy(self)
+
+    def check_piece_hash(self, i):
+        piece_hash = self.piece_hashes[i]
+        if self.piece_checked[i]:
+            return True
+        start = i*self.piece_length
+        end = min((i+1)*(self.piece_length), self.length)
+        if all(self.have_data[start:end]):
+            piece_hash = sha.new(self.data[start:end]).digest()
+            if piece_hash == self.piece_hashes[i]:
+                self.piece_checked[i] = True
+                sys.stdout.write('hashing piece %d/%d                 \r' % (i+1, len(self.piece_hashes)))
+                sys.stdout.flush()
+                return True
+            else:
+                print 'hash check failed!'
+                print 'throwing out piece', i
+                print '(bytes', start,'up to', end, ')'
+                print 'lookup:', self.piece_hashes[i]
+                print 'calculated:', piece_hash
+                self.have_data[start:end] = 0
+                self.data[start:end] = '\x00'*(end-start)
+                self.pending[start:end] = 0
+                return False
+        return False
 
     def check_piece_hashes(self):
         """Returns the number of piece hashes checked"""
-        checked = 0
-        failed = 0
-        for i, piece_hash in enumerate(self.piece_hashes):
-            if self.piece_checked[i]:
-                checked += 1
-                continue
-            start = i*self.piece_length
-            end = min((i+1)*(self.piece_length), self.length)
-            if all(self.have_data[start:end]):
-                checked += 1
-                piece_hash = sha.new(self.data[start:end]).digest()
-                if piece_hash == self.piece_hashes[i]:
-                    self.piece_checked[i] = True
-                    sys.stdout.write('hashing piece %d/%d                 \r' % (i+1, len(self.piece_hashes)))
-                    sys.stdout.flush()
-                else:
-                    print 'hash check failed!'
-                    print 'throwing out piece', i
-                    print '(bytes', start,'up to', end, ')'
-                    print 'lookup:', self.piece_hashes[i]
-                    print 'calculated:', piece_hash
-                    failed += 1
-                    self.have_data[start:end] = 0
-                    self.data[start:end] = '\x00'*(end-start)
-                    self.pending[start:end] = 0
-        return checked - failed
+        checked_out = 0
+        for i in range(len(self.piece_hashes)):
+            if self.check_piece_hash(i):
+                checked_out += 1
+        return checked_out
 
     def load(self, filename):
         #TODO check hashes of all pieces
@@ -176,6 +197,10 @@ class ActiveTorrent(Torrent):
     def add_peer(self, ip, port):
         p = Peer((ip, port), active_torrent=self)
         self.peers.append(p)
+        p.connect()
+        #TODO store result of peer connect in self.peer_history - maybe use peer_id too or instead
+        # this probably has to happen later, because p.connect is async
+        # probably should do this in peer.die()
         return weakref.proxy(p)
 
     def kill_peer(self, peer):
@@ -187,6 +212,9 @@ class ActiveTorrent(Torrent):
         self.num_bytes_have = self.have_data.count(1)
         sys.stdout.write('file now %02.2f percent done\r' % self.percent())
         sys.stdout.flush()
+        #TODO check piece hash on the piece we might have finished
+        # peer.torrent.check_piece_hashes()
+        # this version checks every piece, which is unnecessary
 
     def get_data_if_have(self, index, begin, length):
         start = index*self.piece_length

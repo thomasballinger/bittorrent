@@ -35,6 +35,7 @@ class Peer(object):
         self.torrent = None
         #this might depend on the type of peer later
         self.preferred_request_length = 2**14
+        self.strategy = lambda x: False
 
         if active_torrent is not None:
             self.client = None
@@ -138,8 +139,8 @@ class Peer(object):
                 self.run_strategy()
 
     def timer_event(self):
-        self.reactor.start_timer(1, self)
         self.run_strategy()
+        self.reactor.start_timer(1, self)
 
     def die(self):
         if self.dead:
@@ -169,7 +170,7 @@ class Peer(object):
             self.torrent.return_outstanding_request(m)
 
     def run_strategy(self):
-        print 'running strategy', self.strategy.__name__
+        print self, 'running strategy', self.strategy.__name__
         self.strategy(self)
 
     def process_all_messages(self):
@@ -196,6 +197,10 @@ class Peer(object):
                     print 'dieing because client couldn\'t find matching torrent'
                     self.die()
                     return
+            if m.peer_id == self.torrent.client.client_id:
+                print 'dieing because connected to ourselves'
+                self.die()
+                return
         elif m.kind == 'keepalive':
             pass
         elif m.kind == 'bitfield':
