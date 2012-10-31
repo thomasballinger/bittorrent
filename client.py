@@ -18,7 +18,7 @@ class BittorrentClient(object):
         self.port = listen_port
         self.torrents = []
         self.reactor = Reactor()
-        self.connection = AcceptConnection('', self.port, self.reactor, self)
+        self.connection = AcceptingConnection('', self.port, self.reactor, self)
         self.pending_connections = []
 
     def die():

@@ -33,6 +33,9 @@ Todo
 * if peer dies, return all pending requests
 * look at the problems we were having with high pipeline number
     and lower timed out request time
+* factor things out enough that Twisted could be used as a core
+    put message buffer in a separate object, write recv_msg
+    so no read/write events in peer/client objects
 
 ---done above this line---
 
@@ -40,10 +43,6 @@ Todo
 * write queries for status for UI to use
 * learn twisted
 * use packages instead of just modules
-* factor things out enough that Twisted could be used as a core
-    this is a notebook task
-    maybe put message buffer in a separate object, write recv_msg
-    so no read/write events in peer/client objects
 * Don't ask if they don't have the piece
 * endgame cancel messages
 * Use more memory-efficient bitmaps (SBA)
