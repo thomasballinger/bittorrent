@@ -1,4 +1,5 @@
 import time
+import logging
 
 import peerstrategy
 
@@ -16,19 +17,19 @@ class connect_and_ask_n_peers(object):
 
             addresses = torrent.tracker_peer_addresses
 
-            print 'got these peers from tracker:', torrent.tracker_peer_addresses
+            logging.info( 'got these peers from tracker: %s', repr(torrent.tracker_peer_addresses))
             external_ip = torrent.get_external_addr()
-            print 'removing', (external_ip, torrent.client.port), 'if it appears because it looks like it\'s us'
+            logging.info( 'removing %s:%d if it appears because it looks like it\'s us', external_ip, torrent.client.port)
             addresses = filter(lambda ipport:(external_ip, torrent.client.port) != ipport, torrent.tracker_peer_addresses)
-            print 'so just using', addresses
+            logging.info( 'so just using %s', repr(addresses))
 
             if not addresses:
-                print 'no one else on tracker!'
+                logging.warning( 'no one else on tracker!')
                 return
             else:
                 while len(torrent.peers) < self.max_simul_peers and self.addr_index < len(addresses):
                     addr = torrent.tracker_peer_addresses[self.addr_index]
-                    print 'creating peer for', addr
+                    logging.info('creating peer for %s', repr(addr))
                     peer = torrent.add_peer(*addr)
                     peer.strategy = peerstrategy.keep_asking_strategy
                     self.addr_index += 1

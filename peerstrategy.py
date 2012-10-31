@@ -1,7 +1,8 @@
+import logging
 import msg
 def keep_asking_strategy(peer):
     if not peer.interested:
-        print peer, 'sending interested'
+        logging.info('%s sending interested', peer)
         peer.send_msg(msg.interested())
         peer.interested = True
 
@@ -9,7 +10,7 @@ def keep_asking_strategy(peer):
         while len(peer.outstanding_requests) < 10:
             needed_piece = peer.torrent.assign_needed_piece()
             if needed_piece:
-                #print 'torrent needed_piece:', repr(needed_piece)
+                logging.info('torrent needed_piece: %s', repr(needed_piece))
                 peer.send_msg(needed_piece)
             else:
                 break
@@ -18,7 +19,7 @@ def keep_asking_strategy(peer):
             p.strategy = cancel_all_strategy
 
 def cancel_all_strategy(peer):
-    print 'file download complete'
+    logging.info('file download complete')
     peer.strategy = do_nothing_strategy
 
 def do_nothing_strategy(peer):
@@ -26,13 +27,13 @@ def do_nothing_strategy(peer):
 
 def respond_strategy(peer):
     """Respond strategy is initially for peers not yet connected to a torrent"""
-    print 'running respond strategy for', peer
+    logging.info('running respond strategy for %s', peer)
 
     #TODO add something like this back
     #if len(peer.read_buffer) > 68:
         #print 'dieing because more than 68 bytes in read buffer, after we should have tried to parse'
         #peer.die()
     if peer.handshake:
-        print 'switching to do_nothing_strategy'
+        logging.info('%s switching to do_nothing_strategy', peer)
         peer.strategy = do_nothing_strategy
 

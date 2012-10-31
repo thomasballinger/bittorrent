@@ -58,6 +58,7 @@ True
 '\x00\x00\x00\x01\x02'
 """
 
+import logging
 import struct
 
 MSG_NUMS = {
@@ -136,7 +137,7 @@ class Msg(object):
                 except KeyError:
                     raise TypeError("__init__() for "+self.kind+" Msg requires "+arg )
             if set(MSG_ARGS[self.kind]) != set(kwargs.keys()):
-                print 'warning: extra kwargs not being used:', set(kwargs.keys()) - set(MSG_ARGS[self.kind])
+                logging.warning('warning: extra kwargs not being used: %s', repr(set(kwargs.keys()) - set(MSG_ARGS[self.kind])))
         else:
             raise TypeError("kind must be an allowed message kind")
     def init_from_bytestring(self, bytestring):
@@ -269,7 +270,7 @@ def parse_message(buff):
             rest = buff[68:]
             return Msg('handshake', protocol=protocol, reserved=reserved, info_hash=info_hash, peer_id=peer_id), rest
         else:
-            print 'received incomplete message, looks like a handshake'
+            logging.warning('received incomplete message, looks like a handshake')
             return 'incomplete message', buff
     elif len(buff) >= 4:
         msg_length = struct.unpack('!I', buff[:4])[0]

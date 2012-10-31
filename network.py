@@ -2,6 +2,7 @@
 import time
 import socket
 import msg
+import logging
 
 WAIT_TO_CONNECT = 8
 KEEP_ALIVE_TIME = 20
@@ -60,7 +61,7 @@ class MsgConnection(object):
             self.s = sock
         else:
             self.s = socket.socket()
-            print 'connecting to', self.ip, 'on port', self.port, '...'
+            logging.info('connecting to %s on port %d...', self.ip, self.port)
             self.s.setblocking(False)
             try:
                 self.s.connect((self.ip, self.port))
@@ -87,18 +88,16 @@ class MsgConnection(object):
     def write_event(self):
         """Action to take if socket comes up as ready to be written to"""
         if not self.has_received_data:
-            print self, 'has connected!'
+            logging.info('%s has connected!', repr(self))
             self.object.connected = True
             self.has_received_data = True
         while self.messages_to_send:
             self.last_sent_data = time.time()
             self.write_buffer += str(self.messages_to_send.pop(0))
-            #print 'what we\'re going to write:'
-            #print repr(self.write_buffer)
-            #print len(self.write_buffer)
+            logging.debug('what we\'re going to write: %d bytes: %s', len(self.write_buffer), repr(self.write_buffer))
         if self.write_buffer:
             sent = self.s.send(self.write_buffer)
-            #print self, 'sent', sent, 'bytes'
+            logging.info('%s sent %d bytes', self, sent)
             self.write_buffer = self.write_buffer[sent:]
         if not self.write_buffer:
             self.reactor.unreg_write(self.s)
@@ -109,19 +108,18 @@ class MsgConnection(object):
         try:
             s = self.s.recv(1024*1024)
         except socket.error:
-            print self, 'dieing because connection refused'
+            logging.info('%s dieing because connection refused', repr(self))
             self.object.die() # since reading nothing from a socket means closed
             return
         if not s:
-            print self, 'dieing because received read event but nothing to read on socket'
+            logging.info('%s dieing because received read event but nothing to read on socket', repr(self))
             self.object.die() # since reading nothing from a socket means closed
             return
         self.last_received_data = time.time()
         buff = self.read_buffer + s
-        #print self, 'received', len(s), 'bytes'
+        logging.info('%s received %d bytes', self, len(buff))
         messages, self.read_buffer = msg.messages_and_rest(buff)
-        #print 'received messages', messages
-        #print 'with leftover bytes:', repr(self.read_buffer)
-        #print 'starting with', repr(self.read_buffer[:60])
+        logging.debug('received messages: %s', repr(messages))
+        logging.debug('with leftover bytes: %s', repr(self.read_buffer))
         for m in messages:
             self.object.recv_msg(m)

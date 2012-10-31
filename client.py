@@ -1,4 +1,5 @@
 import time
+import logging
 import weakref
 from torrent import ActiveTorrent
 from reactor_select import Reactor
@@ -22,7 +23,7 @@ class BittorrentClient(object):
         self.pending_connections = []
 
     def receive_incoming_connection(self, s, ip, port):
-        print 'receiving incoming connection from', ip, port
+        logging.info('receiving incoming connection from %s:%d', ip, port)
         p = Peer((ip, port), client=self)
         p.respond(s)
         self.pending_connections.append(p)

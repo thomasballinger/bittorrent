@@ -1,4 +1,5 @@
 """Bytearray that immediately writes to disk"""
+import logging
 import os
 import bisect
 #TODO make this async? write are moderately fast
@@ -18,10 +19,9 @@ class DiskArray(object):
         return self.length
     def __setitem__(self, key, value):
         start, length = self._decode_slice(key)
-        #print 'start, length:', start, length
+        logging.info('%s write start: %d, length: %d', repr(self), start, length)
         if len(value) != length:
             raise ValueError('bytes to be written do not match section size')
-        #print 'start', start
         self.f.seek(start)
         self.f.write(value)
         self.f.flush()
@@ -45,27 +45,24 @@ class MultiFileDiskArray(DiskArray):
         self.sizes = sizes
         self.files = files
         self.starts = [sum(self.sizes[:(i)]) for i in range(len(self.sizes))]
-        #print self.starts
         self.diskarrays = [DiskArray(size, fn) for size, fn in zip(sizes, files)]
         self.length = sum(sizes)
     def __setitem__(self, key, value):
         start, length = self._decode_slice(key)
         if len(value) != length:
             raise ValueError('bytes to be written do not match section size')
-        #print 'start', start
+        logging.info('%s write start: %d, length: %d', repr(self), start, length)
         start_file_index = bisect.bisect_right(self.starts, start) - 1
-        #print 'start file index', start_file_index
+        logging.info('start file index: %d', start_file_index)
         written = 0
         for file_index in range(start_file_index, len(self.files)):
             file_location = self.starts[file_index]
             file_size = self.sizes[file_index]
             da = self.diskarrays[file_index]
-            #print 'file location:', file_location
 
             start_in_file = start - file_location + written
             desired_write_end = start_in_file + length - written
             file_end_pos = min(desired_write_end, file_size)
-            #print 'writing', start_in_file, ':', file_end_pos, 'to', da
             da[start_in_file:file_end_pos] = value[written:written+(file_end_pos-start_in_file)]
             written += file_end_pos - start_in_file
 

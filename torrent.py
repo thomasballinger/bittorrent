@@ -5,6 +5,7 @@ Torrent('./example.torrent')
 >>> str(t) #doctest: +ELLIPSIS
 '<Torrent Object at ...; contents: Distributed by Mininova.txt; TorrentFreak BitTorrent Speed Tips 101.pdf>'
 """
+import logging
 import datetime
 import time
 import sha
@@ -107,7 +108,7 @@ class ActiveTorrent(Torrent):
         self.client.reactor.start_timer(10, self)
 
     def run_strategy(self):
-        #print self, 'running strategy', self.strategy.__name__
+        logging.info('%s running strategy %s', self, self.strategy.__name__)
         self.strategy(self)
 
     def check_piece_hash(self, i):
@@ -124,11 +125,11 @@ class ActiveTorrent(Torrent):
                 sys.stdout.flush()
                 return True
             else:
-                print 'hash check failed!'
-                print 'throwing out piece', i
-                print '(bytes', start,'up to', end, ')'
-                print 'lookup:', self.piece_hashes[i]
-                print 'calculated:', piece_hash
+                logging.info('hash check failed!')
+                logging.info('throwing out piece %d', i)
+                logging.info('(bytes %d up to %d)', start, end)
+                logging.info('lookup: %s', self.piece_hashes[i])
+                logging.info('calculated: %s', piece_hash)
                 self.have_data[start:end] = 0
                 self.data[start:end] = '\x00'*(end-start)
                 self.pending[start:end] = 0
@@ -172,9 +173,9 @@ class ActiveTorrent(Torrent):
 
         addr = self.announce_url
         full_url = addr + '?' + urllib.urlencode(announce_query_params)
-        print 'making request to', full_url
+        logging.info('%s making request to %s', repr(self), full_url)
         response_data = bencode.bdecode(urllib.urlopen(full_url).read())
-        print 'response returned'
+        logging.info('response returned')
 
         self.last_tracker_update = time.time()
         self.tracker_min_interval = response_data.get('min interval', None)
@@ -194,7 +195,6 @@ class ActiveTorrent(Torrent):
         s = socket.socket()
         port = 80
         addr = self.announce_url
-        print self.announce_url
         if self.announce_url.count(':') == 2:
             _, first, rest = self.announce_url.split(':')
             addr = first.split('/')[-1]
@@ -268,7 +268,7 @@ class ActiveTorrent(Torrent):
         return msg.request(index=index, begin=begin, length=length)
 
     def return_outstanding_request(self, m):
-        print 'returning', repr(m)
+        logging.info('returning %s', repr(m))
         self.pending[m.begin:(m.begin+m.length)] = 0
 
 def test():

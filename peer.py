@@ -1,5 +1,5 @@
-import socket
 import time
+import logging
 
 import bitstring
 
@@ -94,7 +94,7 @@ class Peer(object):
 
     def die(self):
         if self.dead:
-            print '... but was already dead/dieing'
+            logging.warning('%s was already dead/dieing when killed', repr(self))
             raise Exception("Double Death")
         self.dead = True
         self.connection.die()
@@ -111,8 +111,7 @@ class Peer(object):
             t = now - t_sent
             if t > REQUEST_MSG_TIMEOUT:
                 #print 'canceling message which has been outstanding for over a minute:',
-                print 'outstanding request!'
-                print m.index, m.begin, m.length, time.time() - t_sent
+                logging.info('outstanding request: request(%d, %d, %d) is %d seconds old', m.index, m.begin, m.length, time.time() - t_sent)
                 #self.send_msg(msg.cancel(m.index, m.begin, m.length))
                 #self.torrent.return_outstanding_request(m)
                 #del self.outstanding_requests[msg.request(m.index, m.begin, m.length)]
@@ -122,7 +121,7 @@ class Peer(object):
             self.torrent.return_outstanding_request(m)
 
     def run_strategy(self):
-        #print self, 'running strategy', self.strategy.__name__
+        logging.info('%s running strategy %s', self, self.strategy.__name__)
         if self.dead:
             raise Exception('run_strategy was called for ', self, 'despite being dead already')
         self.strategy(self)
@@ -132,18 +131,18 @@ class Peer(object):
 
         big state machine-y thing
         """
-        #print 'processing message', repr(m)
+        logging.info('processing message: %s', repr(m))
         if m.kind == 'handshake':
             if self.handshake:
                 raise Exception('Received second handshake')
             self.handshake = m
             if not self.torrent:
                 if not self.client.move_to_torrent(self, self.handshake.info_hash):
-                    print 'dieing because client couldn\'t find matching torrent'
+                    logging.info('dieing because client couldn\'t find matching torrent')
                     self.die()
                     return
             if m.peer_id == self.torrent.client.client_id:
-                print 'dieing because connected to ourselves'
+                logging.info('dieing because connected to ourselves')
                 self.die()
                 return
         elif m.kind == 'keep_alive':
@@ -172,20 +171,20 @@ class Peer(object):
                 data = self.torrent.get_data_if_have(m.index, m.begin, m.length)
                 if data:
                     m = msg.piece(m.index, m.begin, data)
-                    #print 'sending', repr(m), 'to', self
+                    logging.info('sending %s to %s', repr(m), self)
                     self.send_msg(m)
                 else:
-                    print self, 'was just asked for piece it didn\'t have'
+                    logging.warning('%s was just asked for piece it didn\'t have', repr(self))
             else:
-                print 'peer requesting piece despite not sending interested, so not sending it'
+                logging.warning('peer requesting piece despite not sending interested, so not sending it')
         elif m.kind == 'piece':
             try:
                 del self.outstanding_requests[msg.request(m.index, m.begin, len(m.block))]
             except KeyError:
-                print 'got a request back that we had canceled - oh well!'
+                logging.warning('got a request back that we had canceled - oh well!')
             self.torrent.add_data(m.index, m.begin, m.block)
         else:
-            print 'didn\'t correctly process', repr(m)
+            logging.warning('didn\'t correctly process', repr(m))
             raise Exception('missed a message: ')
         self.run_strategy()
         return m

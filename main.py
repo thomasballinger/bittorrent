@@ -1,3 +1,5 @@
+import logging
+
 from client import BittorrentClient
 import torrentstrategy
 
@@ -21,6 +23,9 @@ def loop(client):
             return
 
 def CLI():
+    logging.basicConfig(filename='bt.log', level=logging.INFO)
+    logging.info('starting logging')
+
     import sys
     #torrentfile = 'test.torrent'
     #torrentfile = '/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent'
