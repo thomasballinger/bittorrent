@@ -37,7 +37,7 @@ def main():
     while True:
         r = client.reactor.poll(1)
         for peer in torrent.peers:
-            print peer.check_outstanding_requests()
+            peer.check_outstanding_requests()
         if r is None:
             return
 

@@ -33,6 +33,8 @@ class Peer(object):
         self.messages_to_send = []
         self.outstanding_requests = {}
         self.torrent = None
+        #this might depend on the type of peer later
+        self.preferred_request_length = 2**14
 
         if active_torrent is not None:
             self.client = None
@@ -155,10 +157,12 @@ class Peer(object):
             self.client.kill_peer(self)
 
     def check_outstanding_requests(self):
-        print '---pending requests---'
+        now = time.time()
         for m, t_sent in self.outstanding_requests.iteritems():
-            print m.index, m.begin, m.length, time.time() - t_sent
-        print '----------------------'
+            t = now - t_sent
+            if t > 60:
+                print 'message has been outstanding for over a minute:',
+                print m.index, m.begin, m.length, time.time() - t_sent
 
     def return_outstanding_requests(self):
         for m, t_sent in self.outstanding_requests.iteritems():

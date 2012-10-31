@@ -69,7 +69,6 @@ class ActiveTorrent(Torrent):
         #todo use a more efficient way to store what portions of pieces we have
         self.have_data = bitstring.BitArray(self.length)
         self.pending = bitstring.BitArray(self.length)
-        self.checked = bitstring.BitArray(self.length)
         self.written = bitstring.BitArray(self.length)
         self.outputfilename = 'outputfile.jpg'
         if os.path.exists(self.outputfilename):
@@ -78,6 +77,7 @@ class ActiveTorrent(Torrent):
         #todo store this stuff on disk
         #self.data = bytearray(self.length)
         self.data = DiskArray(self.length, self.outputfilename)
+        self.piece_checked = bitstring.BitArray(len(self.piece_hashes))
         self.bitfield = bitstring.BitArray(len(self.piece_hashes))
 
         self.num_bytes_have = 0
@@ -89,7 +89,7 @@ class ActiveTorrent(Torrent):
         checked = 0
         failed = 0
         for i, piece_hash in enumerate(self.piece_hashes):
-            if self.checked[i]:
+            if self.piece_checked[i]:
                 checked += 1
                 continue
             start = i*self.piece_length
@@ -98,7 +98,7 @@ class ActiveTorrent(Torrent):
                 checked += 1
                 piece_hash = sha.new(self.data[start:end]).digest()
                 if piece_hash == self.piece_hashes[i]:
-                    self.checked[i] = True
+                    self.piece_checked[i] = True
                     sys.stdout.write('hashing piece %d/%d                 \r' % (i+1, len(self.piece_hashes)))
                     sys.stdout.flush()
                 else:
@@ -211,20 +211,22 @@ class ActiveTorrent(Torrent):
 
         if a peer is provided, return a piece that we need that the peer has
         """
-        print 'looking for needed piece'
         try:
             start = self.pending.find('0b0')[0]
         except IndexError:
             return False
+        suggested_length = 2**14
         if peer:
             pending_pieces = []
             available = peer.peer_bitarray & ~self.pending
-        suggested_length = 2**14
+            suggested_length = peer.preferred_request_length
         length = self.piece_length
-        self.pending[start:(start+length)] = 2**length - 1
         index = start / self.piece_length
         begin = start % self.piece_length
-        length = min(suggested_length, self.piece_length - start % self.piece_length)
+        # don't ask for more in a piece than there is
+        # and cut the last piece short if necessary
+        length = min(suggested_length, self.piece_length - begin, self.length - start)
+        self.pending[start:(start+length)] = 2**length - 1
         return msg.request(index=index, begin=begin, length=length)
 
     def return_outstanding_request(self, m):
