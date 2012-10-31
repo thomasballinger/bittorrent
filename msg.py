@@ -327,7 +327,7 @@ def have(index): return Msg('have', index=index)
 def bitfield(bitfield): return Msg('bitfield', bitfield=bitfield)
 def request(index, begin, length): return Msg('request', index=index, begin=begin, length=length)
 def piece(index, begin, block): return Msg('piece', index=index, begin=begin, block=block)
-def cancel(index, begin, length): Msg('cancel', index=index, begin=begin, length=length)
+def cancel(index, begin, length): return Msg('cancel', index=index, begin=begin, length=length)
 def port(port): return Msg('port', port=port)
 def handshake(pstr=None, reserved=None, info_hash=None, peer_id=None):
     if info_hash is None:

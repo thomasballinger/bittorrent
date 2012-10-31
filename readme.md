@@ -30,13 +30,13 @@ Todo
 * throw away data in memory after write (need to use representation
     other than a byte array
 * multiple file construction
+* if peer dies, return all pending requests
+* timeout cancel messages
 
 ---done above this line---
 
-* endgame cancel messages
-* timeout cancel messages
-* if peer dies, return all pending requests
 * Don't ask if they don't have the piece
+* endgame cancel messages
 * Use more memory-efficient bitmaps (SBA)
 * make sure being choked / being unchoked works ok
 * correctly not be interested when peer has nothing we want

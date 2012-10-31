@@ -6,6 +6,8 @@ import bitstring
 import msg
 import peerstrategy
 
+REQUEST_MSG_TIMEOUT = 60
+
 class Peer(object):
     """Represents a connection to a peer regarding a specific torrent
 
@@ -164,9 +166,11 @@ class Peer(object):
         now = time.time()
         for m, t_sent in self.outstanding_requests.iteritems():
             t = now - t_sent
-            if t > 60:
-                print 'message has been outstanding for over a minute:',
+            if t > REQUEST_MSG_TIMEOUT:
+                print 'canceling message which has been outstanding for over a minute:',
                 print m.index, m.begin, m.length, time.time() - t_sent
+                self.send_msg(msg.cancel(m.index, m.begin, m.length))
+                self.return_outstanding_request(m)
 
     def return_outstanding_requests(self):
         for m, t_sent in self.outstanding_requests.iteritems():
