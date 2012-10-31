@@ -101,6 +101,7 @@ class Peer(object):
 
     def write_event(self):
         """Action to take if socket comes up as ready to be written to"""
+        self.connected = True
         while self.messages_to_send:
             self.last_sent_data = time.time()
             self.write_buffer += str(self.messages_to_send.pop(0))
@@ -141,7 +142,8 @@ class Peer(object):
 
     def timer_event(self):
         self.run_strategy()
-        self.reactor.start_timer(1, self)
+        if not self.dead:
+            self.reactor.start_timer(1, self)
 
     def die(self):
         if self.dead:
@@ -172,6 +174,13 @@ class Peer(object):
 
     def run_strategy(self):
         #print self, 'running strategy', self.strategy.__name__
+        if self.dead:
+            print 'run_strategy was called for ', self, 'despite being dead already'
+            return
+        if not self.connected:
+            if time.time() - self.last_sent_data > 20:
+                self.die() #TODO check this in a better place
+            return
         self.strategy(self)
 
     def process_all_messages(self):
