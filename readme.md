@@ -39,6 +39,7 @@ Todo
 * setup better logging / status message passing to ui
 * write queries for status for UI to use
 * learn twisted
+* use packages instead of just modules
 * factor things out enough that Twisted could be used as a core
     this is a notebook task
     maybe put message buffer in a separate object, write recv_msg
