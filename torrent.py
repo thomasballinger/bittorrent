@@ -54,10 +54,9 @@ class Torrent(object):
         self.piece_hashes = [info_dict['pieces'][i:i+20] for i in range(0, len(info_dict['pieces']), 20)]
         self.private = bool(info_dict.get('private', 0))
         if 'files' in info_dict:
-            print info_dict
             self.mode = 'multi-file'
             self.files = [os.path.join(*f['path']) for f in info_dict['files']]
-            self.files_sizes = [f['length'] for f in info_dict['files']]
+            self.file_sizes = [f['length'] for f in info_dict['files']]
             self.length = sum([f['length'] for f in info_dict['files']])
             self.name = '; '.join([f['path'][-1] for f in info_dict['files']])
         else:

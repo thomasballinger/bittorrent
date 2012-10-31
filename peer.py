@@ -211,7 +211,7 @@ class Peer(object):
                 print 'dieing because connected to ourselves'
                 self.die()
                 return
-        elif m.kind == 'keepalive':
+        elif m.kind == 'keep_alive':
             pass
         elif m.kind == 'bitfield':
             old_bitfield = self.peer_bitfield
@@ -250,6 +250,6 @@ class Peer(object):
             self.torrent.add_data(m.index, m.begin, m.block)
         else:
             print 'didn\'t correctly process', repr(m)
-            raise Exception('missed a message')
+            raise Exception('missed a message: ')
         return m
 
