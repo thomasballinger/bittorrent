@@ -29,10 +29,13 @@ Todo
 * file access instead of in-memory file construction
 * throw away data in memory after write (need to use representation
     other than a byte array
+* multiple file construction
 
 ---done above this line---
 
-* multiple file construction
+* endgame cancel messages
+* timeout cancel messages
+* if peer dies, return all pending requests
 * Don't ask if they don't have the piece
 * Use more memory-efficient bitmaps (SBA)
 * make sure being choked / being unchoked works ok
@@ -45,8 +48,8 @@ Todo
 * Figure out which peers to get which file pieces from
     (random is reasonable acc. to spec)
 * game theory algorithms - karma
-* change announce params
-* endgame cancel messages
+* change announce params, update more than once
+* strategy for torrent choosing peers, keep records of which peers worked
 * Can requests spill across pieces?
 * profile to see if send operations are blocking (consider sending less data per)
 * Play with pipelineing for max DL speed
