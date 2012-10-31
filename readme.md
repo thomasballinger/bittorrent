@@ -31,19 +31,26 @@ Todo
     other than a byte array
 * multiple file construction
 * if peer dies, return all pending requests
-* timeout cancel messages
+* look at the problems we were having with high pipeline number
+    and lower timed out request time
 
 ---done above this line---
 
+* setup better logging / status message passing to ui
+* write queries for status for UI to use
+* learn twisted
+* factor things out enough that Twisted could be used as a core
+    this is a notebook task
+    maybe put message buffer in a separate object, write recv_msg
+    so no read/write events in peer/client objects
 * Don't ask if they don't have the piece
 * endgame cancel messages
 * Use more memory-efficient bitmaps (SBA)
 * make sure being choked / being unchoked works ok
 * correctly not be interested when peer has nothing we want
+    implement with torrent instructing peers in strategies
 * Read about and play with request size - presumably piece size is a max
     spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
-* look at the problems we were having with high pipeline number
-    and lower timed out request time
 * loading of incomplete files so DLs can be resumed
     either write metadata to disk or guess via runs of 0 bytes
 
@@ -57,9 +64,8 @@ Todo
     ask tracker for new peers periodically
 * Can requests spill across pieces?
 * profile to see if send operations are blocking (consider sending less data per)
+* profile to see where cpu is going - are reactor timeouts too short?
 * Play with pipelineing for max DL speed
 * writing testing scripts
 * write tests for bittorrent logic - fake messages so no network io
-* factor things out enough that Twisted could be used as a core
-* learn twisted
 * Build a frontend visualization of data - urwid or html+js
