@@ -2,16 +2,16 @@ import time
 KEEP_ALIVE_TIME = 30
 import msg
 def keep_asking_strategy(peer):
-    #if not peer.interested:
-    if peer.choked:
-        peer.send_msg(msg.interested())
+    if not peer.interested:
         print peer, 'sending interested'
+        peer.send_msg(msg.interested())
+        peer.interested = True
 
     if not peer.choked:
         while len(peer.outstanding_requests) < 15:
             needed_piece = peer.torrent.assign_needed_piece()
             if needed_piece:
-                print 'torrent needed_piece:', repr(needed_piece)
+                #print 'torrent needed_piece:', repr(needed_piece)
                 peer.send_msg(needed_piece)
             else:
                 break

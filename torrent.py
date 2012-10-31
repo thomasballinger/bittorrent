@@ -98,7 +98,7 @@ class ActiveTorrent(Torrent):
         self.client.reactor.start_timer(10, self)
 
     def run_strategy(self):
-        print self, 'running strategy', self.strategy.__name__
+        #print self, 'running strategy', self.strategy.__name__
         self.strategy(self)
 
     def check_piece_hash(self, i):
@@ -166,7 +166,7 @@ class ActiveTorrent(Torrent):
         response_data = bencode.bdecode(urllib.urlopen(full_url).read())
 
         self.last_tracker_update = time.time()
-        self.tracker_min_interval = response_data['min interval']
+        self.tracker_min_interval = response_data.get('min interval', None)
         self.tracker_interval = response_data['interval']
         self.tracker_complete = response_data['complete']
         self.tracker_incomplete = response_data['incomplete']

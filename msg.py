@@ -302,9 +302,7 @@ def parse_message(buff):
         else:
             return Msg(kind), rest
     else:
-        print 'received unknown or incomplete message, or perhaps prev parse consumed too much:'
-        print repr(buff)
-        raise Exception(repr(buff))
+        return 'incomplete message', buff
 
 def messages_and_rest(buff):
     # TODO do this in a more efficient way (index instead of buffer)

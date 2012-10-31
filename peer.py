@@ -170,7 +170,7 @@ class Peer(object):
             self.torrent.return_outstanding_request(m)
 
     def run_strategy(self):
-        print self, 'running strategy', self.strategy.__name__
+        #print self, 'running strategy', self.strategy.__name__
         self.strategy(self)
 
     def process_all_messages(self):
