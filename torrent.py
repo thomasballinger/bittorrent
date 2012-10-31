@@ -206,7 +206,6 @@ class ActiveTorrent(Torrent):
     def add_peer(self, ip, port):
         p = Peer((ip, port), active_torrent=self)
         self.peers.append(p)
-        p.connect()
         #TODO store result of peer connect in self.peer_history - maybe use peer_id too or instead
         # this probably has to happen later, because p.connect is async
         # probably should do this in peer.die()

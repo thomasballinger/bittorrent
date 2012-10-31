@@ -1,5 +1,3 @@
-import time
-KEEP_ALIVE_TIME = 30
 import msg
 def keep_asking_strategy(peer):
     if not peer.interested:
@@ -18,18 +16,13 @@ def keep_asking_strategy(peer):
     if peer.torrent.piece_checked.count(1) == len(peer.torrent.piece_hashes):
         for p in peer.torrent.peers:
             p.strategy = cancel_all_strategy
-    now = time.time()
-    if now - peer.last_sent_data > KEEP_ALIVE_TIME:
-        peer.send_msg(msg.keepalive())
 
 def cancel_all_strategy(peer):
     print 'file download complete'
     peer.strategy = do_nothing_strategy
 
 def do_nothing_strategy(peer):
-    now = time.time()
-    if now - peer.last_sent_data > KEEP_ALIVE_TIME:
-        peer.send_msg(msg.keepalive())
+    pass
 
 def respond_strategy(peer):
     """Respond strategy is initially for peers not yet connected to a torrent"""
