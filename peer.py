@@ -4,7 +4,7 @@ import time
 import bitstring
 
 import msg
-import strategy
+import peerstrategy
 
 class Peer(object):
     """Represents a connection to a peer regarding a specific torrent
@@ -78,7 +78,7 @@ class Peer(object):
         self.reactor.reg_write(self.s)
 
     def respond(self):
-        self.strategy = strategy.respond_strategy
+        self.strategy = peerstrategy.respond_strategy
         self.reactor.add_readerwriter(self.s.fileno(), self)
         self.reactor.reg_read(self.s)
         self.run_strategy()
@@ -97,6 +97,7 @@ class Peer(object):
         self.reactor.add_readerwriter(self.s.fileno(), self)
         self.reactor.reg_write(self.s)
         self.reactor.reg_read(self.s)
+        #TODO add check that we actually connect at some point
 
     def write_event(self):
         """Action to take if socket comes up as ready to be written to"""

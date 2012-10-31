@@ -14,10 +14,11 @@ import urllib
 import sys
 import socket
 import weakref
+import shutil
 
 import bitstring
 
-from diskbytearray import DiskArray
+from diskbytearray import MultiFileDiskArray
 from sparsebitarray import SBA
 import torrentstrategy
 import peerstrategy
@@ -26,7 +27,11 @@ import msg
 from peer import Peer
 
 class Torrent(object):
-    """Torrent file data"""
+    """Torrent file data
+
+    >>> t = Torrent('/Users/tomb/Downloads/soulpurge - broken heart ep.torrent')
+    >>> t.files
+    """
     def __init__(self, filename):
         self.filename = filename
         self.initialize_from_torrent_file()
@@ -49,13 +54,18 @@ class Torrent(object):
         self.piece_hashes = [info_dict['pieces'][i:i+20] for i in range(0, len(info_dict['pieces']), 20)]
         self.private = bool(info_dict.get('private', 0))
         if 'files' in info_dict:
+            print info_dict
             self.mode = 'multi-file'
+            self.files = [os.path.join(*f['path']) for f in info_dict['files']]
+            self.files_sizes = [f['length'] for f in info_dict['files']]
             self.length = sum([f['length'] for f in info_dict['files']])
-            self.name = '; '.join([f['path'][0] for f in info_dict['files']])
+            self.name = '; '.join([f['path'][-1] for f in info_dict['files']])
         else:
             self.mode = 'single-file'
             self.name = info_dict['name']
             self.length = info_dict['length']
+            self.files = [self.name]
+            self.file_sizes = [self.length]
         if self.length > len(self.piece_hashes) * self.piece_length:
             raise Torrent.ParsingException('File size is greater than total size of all pieces')
 
@@ -72,13 +82,14 @@ class ActiveTorrent(Torrent):
         self.have_data = bitstring.BitArray(self.length)
         self.pending = bitstring.BitArray(self.length)
         self.written = bitstring.BitArray(self.length)
-        self.outputfilename = 'outputfile.jpg'
-        if os.path.exists(self.outputfilename):
-            os.remove(self.outputfilename)
+        self.outputfolder = 'outputfolder'
+        if os.path.exists(self.outputfolder):
+            shutil.rmtree(self.outputfolder)
 
         #todo store this stuff on disk
         #self.data = bytearray(self.length)
-        self.data = DiskArray(self.length, self.outputfilename)
+
+        self.data = MultiFileDiskArray(self.file_sizes, [os.path.join(self.outputfolder, f) for f in self.files])
         self.piece_checked = bitstring.BitArray(len(self.piece_hashes))
         self.bitfield = bitstring.BitArray(len(self.piece_hashes))
         self.last_tracker_update = 0

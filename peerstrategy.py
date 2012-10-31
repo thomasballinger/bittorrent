@@ -27,7 +27,9 @@ def cancel_all_strategy(peer):
     peer.strategy = do_nothing_strategy
 
 def do_nothing_strategy(peer):
-    pass
+    now = time.time()
+    if now - peer.last_sent_data > KEEP_ALIVE_TIME:
+        peer.send_msg(msg.keepalive())
 
 def respond_strategy(peer):
     """Respond strategy is initially for peers not yet connected to a torrent"""
