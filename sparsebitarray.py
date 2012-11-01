@@ -86,9 +86,13 @@ class SparseBitArray(object):
         if (not x) and self.all():
             raise ValueError('no unset bits in array')
         x = bool(x)
-        for i, el in enumerate(self):
-            if bool(el) == x:
-                return i
+        if x:
+            return self.changes[0]
+        else:
+            if self.changes and self.changes[0] == 0:
+                return self.changes[1]
+            else:
+                return 0
         raise Exception('Logic Error')
 
     def count(self, x):
