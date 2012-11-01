@@ -31,6 +31,8 @@ class MsgConnection(object):
     """Translation layer from msg objects to the tcp wire
 
     Sends and receives messages as msg objects
+    If passed a socket in init, use it - else
+    open a new one
     """
     def __init__(self, ip, port, reactor, object, sock=None):
         self.object = object
@@ -89,7 +91,6 @@ class MsgConnection(object):
         """Action to take if socket comes up as ready to be written to"""
         if not self.has_received_data:
             logging.info('%s has connected!', repr(self))
-            self.object.connected = True
             self.has_received_data = True
         while self.messages_to_send:
             self.last_sent_data = time.time()

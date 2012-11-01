@@ -21,8 +21,6 @@ import bitstring
 
 from diskbytearray import MultiFileDiskArray
 from sparsebitarray import SBA
-import torrentstrategy
-import peerstrategy
 
 import msg
 from peer import Peer
@@ -123,6 +121,8 @@ class ActiveTorrent(Torrent):
                 self.piece_checked[i] = True
                 sys.stdout.write('hashing piece %d/%d                 \r' % (i+1, len(self.piece_hashes)))
                 sys.stdout.flush()
+                for peer in self.peers:
+                    peer.send_msg(msg.have(i))
                 return True
             else:
                 logging.info('hash check failed!')

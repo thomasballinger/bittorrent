@@ -22,19 +22,16 @@ class Peer(object):
         self.ip = ip
         self.port = port
         self.connection = None
-
-        self.handshake = None
-        self.connected = False
-        self.dead = False
-        self.connection = None
-
         self.torrent = None
+        self.handshake = None
+        self.dead = False
+
         #this might depend on the type of peer later
         self.preferred_request_length = 2**14
         self.strategy = lambda x: False
 
         if active_torrent is not None:
-            self.client = None
+            self.client = active_torrent.client
             self.set_torrent(active_torrent)
         elif client is not None:
             self.client = client
@@ -46,7 +43,6 @@ class Peer(object):
         self.reactor.start_timer(1, self)
 
     def set_torrent(self, active_torrent):
-        self.client = None
         self.torrent = active_torrent
         self.reactor = self.torrent.client.reactor
 
@@ -56,7 +52,6 @@ class Peer(object):
         self.choked = True
         self.peer_choked = False
         self.peer_bitfield = bitstring.BitArray(len(active_torrent.piece_hashes))
-        #self.peer_bitfield = bitstring.BitArray((len(active_torrent.piece_hashes)+7) / 8 * 8)
 
         #if we already have a connection, then we are responding to a peer connection
         if self.connection:
@@ -67,6 +62,11 @@ class Peer(object):
             self.send_msg(msg.handshake(info_hash=self.torrent.info_hash, peer_id=self.torrent.client.client_id))
             self.send_msg(msg.bitfield(self.torrent.bitfield))
             self.send_msg(msg.unchoke())
+
+    def respond(self, s):
+        self.connection = MsgConnection(self.ip, self.port, self.reactor, self, s)
+        self.strategy = peerstrategy.wait_for_handshake_strategy
+        self.run_strategy()
 
     def __repr__(self):
         if self.torrent:
@@ -81,11 +81,6 @@ class Peer(object):
             if m.kind == 'request':
                 self.outstanding_requests[m] = time.time()
         self.connection.send_msg(*messages)
-
-    def respond(self, s):
-        self.connection = MsgConnection(self.ip, self.port, self.reactor, self, s)
-        self.strategy = peerstrategy.respond_strategy
-        self.run_strategy()
 
     def timer_event(self):
         self.run_strategy()
@@ -146,7 +141,7 @@ class Peer(object):
                 self.die()
                 return
         elif m.kind == 'keep_alive':
-            pass
+            pass # side effects of keep_alive being processed are enough
         elif m.kind == 'bitfield':
             old_bitfield = self.peer_bitfield
             temp = bitstring.BitArray(bytes=m.bitfield)
@@ -163,8 +158,6 @@ class Peer(object):
         elif m.kind == 'have':
             self.peer_bitfield[m.index] = 1
         elif m.kind == 'request':
-            #TODO prove this won't happen when we don't yet have an associated torrent,
-            # or throw a nice error
             if self.torrent is None:
                 raise Exception(repr(self)+' can\'t process request when no torrent associated yet')
             if self.peer_interested:
