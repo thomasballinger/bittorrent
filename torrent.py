@@ -148,6 +148,10 @@ class ActiveTorrent(Torrent):
             addr = first.split('/')[-1]
             port = rest.split('/')[0]
             port = int(port)
+        elif 'http' in self.announce_url:
+            _, rest = self.announce_url.split(':')
+            addr = rest[2:].split('/')[0]
+        logging.info('connecting to %s:%d to determine external ip', addr, port)
         s.connect((addr, port))
         ip, port = s.getsockname()
         s.close()

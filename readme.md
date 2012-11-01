@@ -36,16 +36,19 @@ Todo
 * factor things out enough that Twisted could be used as a core
     put message buffer in a separate object, write recv_msg
     so no read/write events in peer/client objects
+* setup better logging
+* Use more memory-efficient bitmaps (SBA)
 
 ---done above this line---
 
-* setup better logging / status message passing to ui
+* Try big files
+  * endgame ask-many and cancel messages
+  * close connections with peers that say they have everything, or aren't
+      interested
+* Don't ask if they don't have the piece
 * write queries for status for UI to use
 * learn twisted
 * use packages instead of just modules
-* Don't ask if they don't have the piece
-* endgame cancel messages
-* Use more memory-efficient bitmaps (SBA)
 * make sure being choked / being unchoked works ok
 * correctly not be interested when peer has nothing we want
     implement with torrent instructing peers in strategies
