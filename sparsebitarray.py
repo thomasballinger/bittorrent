@@ -31,7 +31,10 @@ class SparseBitArray(object):
         else:
             scale = scale if scale is not None else 1
             repetitions = repetitions if repetitions is not None else 1
-            iterable = list(iterable)
+            if isinstance(iterable, basestring):
+                iterable = [int(x) for x in iterable]
+            else:
+                iterable = list(iterable)
             self.length = len(iterable)*scale*(repetitions)
             self.changes = []
 
@@ -50,7 +53,7 @@ class SparseBitArray(object):
     def normalize(self):
         """Changes self.changes to the canonical representation
 
-        >>> s = SparseBitArray('00000000000000000000')
+        >>> s = SparseBitArray(iterable='00000000000000000000')
         >>> s.changes = [0,0,0,0,20,20]
         >>> s.normalize()
         >>> s.changes
@@ -67,6 +70,25 @@ class SparseBitArray(object):
                 del self.changes[i]
             else:
                 i += 1
+
+    def index(self, x):
+        """Return index of element or raise ValueError if not found
+
+        >>> s = SparseBitArray(iterable='0101')
+        >>> s.index(0)
+        0
+        >>> s.index(1)
+        1
+        """
+        if x and self.none():
+            raise ValueError('no set bits in array')
+        if (not x) and self.all():
+            raise ValueError('no unset bits in array')
+        x = bool(x)
+        for i, el in enumerate(self):
+            if bool(el) == x:
+                return i
+        raise Exception('Logic Error')
 
     def count(self, x):
         """counts true or false values
@@ -200,6 +222,23 @@ class SparseBitArray(object):
             self.changes = new_changes
         else:
             raise ValueError("Single element assignment not allowed")
+
+    def __invert__(self):
+        """bitwise inverse
+        >>> a = SparseBitArray(20); a[4:6] = True; a[10:16] = True;
+        >>> ~a
+        SparseBitArray('11110011110000001111')
+        >>> a = SparseBitArray(20); a[:] = True
+        >>> ~a
+        SparseBitArray('00000000000000000000')
+        """
+        new = SparseBitArray(self.length)
+        new.changes = self.changes
+        new.changes.append(self.length)
+        new.changes.insert(0, 0)
+        new.normalize()
+        return new
+
     def __and__(self, other):
         """
         >>> a = SparseBitArray(20); a[4:6] = True; a[10:16] = True;
