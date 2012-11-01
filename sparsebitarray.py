@@ -2,27 +2,25 @@
 Sparse (really Frequently Contiguous) Binary Array
 
 TODO:
-ensure all(a[10:20]) works
-bitwise and would be really useful
+Eliminate need for .normalize() by ensuring self.changes never have duplicates
 binary search to find overlapping segments
-faster all implementation
-count(True)
-cache count(True) and count(False)
-Construct from bitarray and multiplier
 
 """
 import bisect
 import sys
-class SBA(object):
+class SparseBitArray(object):
     """Sparse BitArray, in which data is represented by indices of changes
     between runs of set and unset values
 
-    >>> s = SBA(20); s
+    >>> s = SparseBitArray(20); s
     SparseBitArray('00000000000000000000')
-    >>> s = SBA(iterable=[1,0,0,1], scale=3, repetitions=2); s
+    >>> s = SparseBitArray(iterable=[1,0,0,1], scale=3, repetitions=2); s
     SparseBitArray('111000000111111000000111')
+    >>> s[:] = True; all(s), any(s)
+    (True, True)
     """
     def __init__(self, length=None, iterable=None, scale=None, repetitions=None):
+        self.cached_ones = None
         if (not length and not iterable) or (length and iterable):
             raise ValueError("Must initialize with either length or iterable")
         if length and (scale is not None or repetitions is not None):
@@ -43,18 +41,79 @@ class SBA(object):
                     end = start + scale
                     self[start:end] = bool(x)
                     start += scale
+    def all(self):
+        self.normalize()
+        return True if self.changes == [0, self.length] else False
+    def none(self):
+        self.normalize()
+        return True if self.changes == [] else False
+    def normalize(self):
+        """Changes self.changes to the canonical representation
+
+        >>> s = SparseBitArray('00000000000000000000')
+        >>> s.changes = [0,0,0,0,20,20]
+        >>> s.normalize()
+        >>> s.changes
+        []
+        """
+        if len(set(self.changes)) == len(self.changes):
+            return
+        i = 0
+        while True:
+            if i >= len(self.changes) - 1:
+                break
+            if self.changes[i] == self.changes[i+1]:
+                del self.changes[i]
+                del self.changes[i]
+            else:
+                i += 1
+
+    def count(self, x):
+        """counts true or false values
+        >>> s = SparseBitArray(iterable=[1,0,0,1], scale=3, repetitions=2); s
+        SparseBitArray('111000000111111000000111')
+        >>> s.count(1)
+        12
+        >>> s.count(0)
+        12
+        >>> s[3:5] = 1; s.count(1)
+        14
+        >>> s.all(), s.none()
+        (False, False)
+        >>> s[:] = True; s.all()
+        True
+        >>> s[:] = False; s.none()
+        True
+        """
+        if self.cached_ones is None:
+            ones = 0
+            last_one = None
+            for i in self.changes:
+                if last_one is None:
+                    last_one = i
+                else:
+                    ones += i - last_one
+                    last_one = None
+                self.cached_ones = ones
+        if x:
+            return self.cached_ones
+        else:
+            return self.length - self.cached_ones
 
     def __len__(self):
         return self.length
+
     def __repr__(self):
         s = ''.join(str(int(x)) for x in self)
         return 'SparseBitArray(\'%s\')' % s
+
     def _decode_slice(self, key):
         start, step, end = key.start, key.step, key.stop
         if start is None: start = 0
         if end is None: end = len(self)
         if step not in [None, 1]: raise ValueError("Custom steps not allowed: "+repr(key))
         return start, end
+
     def _indices(self, start, end):
         start_index = bisect.bisect_right(self.changes, start)
         end_index = bisect.bisect_left(self.changes, end)
@@ -63,7 +122,7 @@ class SBA(object):
     def __getitem__(self, key):
         """Get a slice or the value of an entry
 
-        >>> s = SBA(20); s[2:6] = True; s
+        >>> s = SparseBitArray(20); s[2:6] = True; s
         SparseBitArray('00111100000000000000')
         >>> s[2:6]
         SparseBitArray('1111')
@@ -79,7 +138,7 @@ class SBA(object):
         if isinstance(key, slice):
             start, end = self._decode_slice(key)
             start_index, end_index = self._indices(start, end)
-            result = SBA(end - start)
+            result = SparseBitArray(end - start)
 
             if self[start]:
                 result.changes.append(0)
@@ -96,7 +155,7 @@ class SBA(object):
     def __setitem__(self, key, value):
         """Sets item or slice to True or False
 
-        >>> s = SBA(20); s[2:6] = True; s
+        >>> s = SparseBitArray(20); s[2:6] = True; s
         SparseBitArray('00111100000000000000')
         >>> s[4:10] = True; s
         SparseBitArray('00111111110000000000')
@@ -123,6 +182,7 @@ class SBA(object):
         >>> s[:] = True; s
         SparseBitArray('11111111111111111111')
         """
+        self.cached_ones = None
         if isinstance(key, slice):
             start, end = self._decode_slice(key)
             start_index, end_index = self._indices(start, end)
@@ -142,8 +202,8 @@ class SBA(object):
             raise ValueError("Single element assignment not allowed")
     def __and__(self, other):
         """
-        >>> a = SBA(20); a[4:6] = True; a[10:16] = True;
-        >>> b = SBA(20); b[5:9] = True; b[11:18] = True;
+        >>> a = SparseBitArray(20); a[4:6] = True; a[10:16] = True;
+        >>> b = SparseBitArray(20); b[5:9] = True; b[11:18] = True;
         >>> a; b; a & b
         SparseBitArray('00001100001111110000')
         SparseBitArray('00000111100111111100')
@@ -151,7 +211,7 @@ class SBA(object):
         """
         self_index = 0
         other_index = 0
-        new = SBA(self.length)
+        new = SparseBitArray(self.length)
         state = False
         while True:
             self_num = self.changes[self_index] if self_index < len(self.changes) else sys.maxint
