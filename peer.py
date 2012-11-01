@@ -2,6 +2,7 @@ import time
 import logging
 
 import bitstring
+import sparsebitarray
 
 import msg
 import peerstrategy

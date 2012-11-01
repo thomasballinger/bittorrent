@@ -18,9 +18,9 @@ import weakref
 import shutil
 
 import bitstring
+import sparsebitarray
 
 from diskbytearray import MultiFileDiskArray
-from sparsebitarray import SBA
 
 import msg
 from peer import Peer
@@ -28,8 +28,9 @@ from peer import Peer
 class Torrent(object):
     """Torrent file data
 
-    >>> t = Torrent('/Users/tomb/Downloads/soulpurge - broken heart ep.torrent')
+    >>> t = Torrent('soulpurge.torrent')
     >>> t.files
+    ['Content/coverart/front.jpg', 'Content/soulPURGE - 01 - I Miss You.mp3', 'Content/soulPURGE - 02 - I Need You.mp3', 'Description.txt', 'LegalTorrents.txt', 'License.txt']
     """
     def __init__(self, filename):
         self.filename = filename
@@ -87,8 +88,8 @@ class ActiveTorrent(Torrent):
             shutil.rmtree(self.outputfolder)
 
         self.data = MultiFileDiskArray(self.file_sizes, [os.path.join(self.outputfolder, f) for f in self.files])
-        self.have_data = bitstring.BitArray(self.length)
-        self.pending = bitstring.BitArray(self.length)
+        self.have_data = sparsebitarray.SparseBitArray(self.length)
+        self.pending = sparsebitarray.SparseBitArray(self.length)
 
         self.piece_checked = bitstring.BitArray(len(self.piece_hashes))
 
@@ -166,7 +167,7 @@ class ActiveTorrent(Torrent):
             return True
         start = i*self.piece_length
         end = min((i+1)*(self.piece_length), self.length)
-        if all(self.have_data[start:end]):
+        if self.have_data[start:end].all():
             piece_hash = sha.new(self.data[start:end]).digest()
             if piece_hash == self.piece_hashes[i]:
                 self.piece_checked[i] = True
@@ -197,7 +198,7 @@ class ActiveTorrent(Torrent):
     def load(self, filename):
         if os.path.isdir(filename):
             raise Exception("loading from multiple files not yet implemented")
-        self.have_data[:] = 2**(self.length)-1
+        self.have_data[:] = True
         self.data[:] = open(filename, 'rb').read()
         assert self.have_data.count(1) == self.length
         #assert self.check_piece_hashes() == len(self.piece_hashes)
@@ -217,7 +218,7 @@ class ActiveTorrent(Torrent):
         self.peers.remove(peer)
 
     def add_data(self, index, begin, block):
-        self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = 2**(len(block))-1
+        self.have_data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = True
         self.data[index*self.piece_length+begin:index*self.piece_length+begin+len(block)] = block
         sys.stdout.write('file now %02.2f percent done\r' % self.percent())
         sys.stdout.flush()
@@ -228,7 +229,7 @@ class ActiveTorrent(Torrent):
     def get_data_if_have(self, index, begin, length):
         start = index*self.piece_length
         end = index*self.piece_length+length
-        if all(self.have_data[start:end]):
+        if self.have_data[start:end].all():
             return str(self.data[start:end])
         else:
             return False
@@ -249,13 +250,17 @@ class ActiveTorrent(Torrent):
         if a peer is provided, return a piece that we need that the peer has
         """
         try:
-            start = self.pending.find('0b0')[0]
-        except IndexError:
+            start = self.pending.index(0)
+        except ValueError:
             return False
         suggested_length = 2**14
         if peer:
             pending_pieces = []
             available = peer.peer_bitarray & ~self.pending
+            print peer.peer_bitarray
+            print self.pending
+            print available
+            raw_input()
             suggested_length = peer.preferred_request_length
         length = self.piece_length
         index = start / self.piece_length

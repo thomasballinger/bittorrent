@@ -1,4 +1,5 @@
 """
+        print new.changes
 Sparse (really Frequently Contiguous) Binary Array
 
 TODO:
@@ -116,7 +117,7 @@ class SparseBitArray(object):
                 else:
                     ones += i - last_one
                     last_one = None
-                self.cached_ones = ones
+            self.cached_ones = ones
         if x:
             return self.cached_ones
         else:
