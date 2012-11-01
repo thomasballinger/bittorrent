@@ -26,6 +26,8 @@ class Peer(object):
         self.handshake = None
         self.dead = False
 
+        self.bytes_sent = 0
+
         #this might depend on the type of peer later
         self.preferred_request_length = 2**14
         self.strategy = lambda x: False
@@ -56,11 +58,11 @@ class Peer(object):
         #if we already have a connection, then we are responding to a peer connection
         if self.connection:
             self.send_msg(msg.handshake(info_hash=self.torrent.info_hash, peer_id=self.torrent.client.client_id))
-            self.send_msg(msg.bitfield(self.torrent.bitfield))
+            self.send_msg(msg.bitfield(self.torrent.piece_checked))
         else:
             self.connection = MsgConnection(self.ip, self.port, self.reactor, self)
             self.send_msg(msg.handshake(info_hash=self.torrent.info_hash, peer_id=self.torrent.client.client_id))
-            self.send_msg(msg.bitfield(self.torrent.bitfield))
+            self.send_msg(msg.bitfield(self.torrent.piece_checked))
             self.send_msg(msg.unchoke())
 
     def respond(self, s):
@@ -80,6 +82,8 @@ class Peer(object):
         for m in messages:
             if m.kind == 'request':
                 self.outstanding_requests[m] = time.time()
+            if m.kind == 'piece':
+                self.bytes_sent += len(m.block)
         self.connection.send_msg(*messages)
 
     def timer_event(self):

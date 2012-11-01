@@ -2,8 +2,13 @@
 Sparse (really Frequently Contiguous) Binary Array
 
 TODO:
+ensure all(a[10:20]) works
 bitwise and would be really useful
 binary search to find overlapping segments
+faster all implementation
+count(True)
+cache count(True) and count(False)
+Construct from bitarray and multiplier
 
 """
 import bisect
@@ -14,10 +19,31 @@ class SBA(object):
 
     >>> s = SBA(20); s
     SparseBitArray('00000000000000000000')
+    >>> s = SBA(iterable=[1,0,0,1], scale=3, repetitions=2); s
+    SparseBitArray('111000000111111000000111')
     """
-    def __init__(self, length):
-        self.length = length
-        self.changes = []
+    def __init__(self, length=None, iterable=None, scale=None, repetitions=None):
+        if (not length and not iterable) or (length and iterable):
+            raise ValueError("Must initialize with either length or iterable")
+        if length and (scale is not None or repetitions is not None):
+            raise ValueError("repate and scale can't be used with length")
+        if length:
+            self.length = length
+            self.changes = []
+        else:
+            scale = scale if scale is not None else 1
+            repetitions = repetitions if repetitions is not None else 1
+            iterable = list(iterable)
+            self.length = len(iterable)*scale*(repetitions)
+            self.changes = []
+
+            start = 0
+            for i in range(repetitions):
+                for x in iterable:
+                    end = start + scale
+                    self[start:end] = bool(x)
+                    start += scale
+
     def __len__(self):
         return self.length
     def __repr__(self):

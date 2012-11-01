@@ -53,6 +53,8 @@ Todo
     spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
 * loading of incomplete files so DLs can be resumed
     either write metadata to disk or guess via runs of 0 bytes
+* strategy for torrent choosing peers, keep records of which peers worked, keep
+    ask tracker for new peers periodically
 
 ------the I'm Done line------
 
@@ -60,8 +62,6 @@ Todo
     (random is reasonable acc. to spec)
 * game theory algorithms - karma
 * change announce params, update more than once
-* strategy for torrent choosing peers, keep records of which peers worked, keep
-    ask tracker for new peers periodically
 * Can requests spill across pieces?
 * profile to see if send operations are blocking (consider sending less data per)
 * profile to see where cpu is going - are reactor timeouts too short?
