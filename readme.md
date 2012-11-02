@@ -2,11 +2,11 @@ bittorrent client
 
 requirements:
 bencode
-bitarray
+bitstring
 
-deluge and opentracker on a linode instance are working for testing
+testing against deluge and opentracker on a linode instance 
 
-Behaviors:
+Strategies:
 Peer can set each torrent to downloading, seeding, or both
 torrent.seeding = True, torrent.downloading = True
 Torrents Have Behaviors:
@@ -21,8 +21,8 @@ peer.send_msg needs to take care of housekeeping for these messages
 individual messages need to time out, this housekeeping needs to
 happen even if now 
 
-Todo
-----
+recently done
+-------------
 
 * Maintain whether connection should be kept open, and keep it open if so
 * actually check hashes - so figure out when pieces are done
@@ -39,31 +39,32 @@ Todo
 * setup better logging
 * Use more memory-efficient bitmaps (SBA)
 
----done above this line---
+Soon todo
+---------
 
-* Time big files vs other clients
-  * endgame ask-many and cancel messages
-  * close connections with peers that say they have everything, or aren't
-      interested
+* endgame ask-many and cancel messages
+* close connections with peers that say they have everything, or aren't
+  interested
 * Don't ask if they don't have the piece
-* write queries for status for UI to use
-* learn twisted
-* use packages instead of just modules
 * make sure being choked / being unchoked works ok
-* correctly not be interested when peer has nothing we want
+* correctly not be interested when peer has nothing we want - read spec to make sure
     implement with torrent instructing peers in strategies
 * Read about and play with request size - presumably piece size is a max
     spec: >2^17 not allowed, generally 2^15 or 14 unless end of file
 * loading of incomplete files so DLs can be resumed
     either write metadata to disk or guess via runs of 0 bytes
 * strategy for torrent choosing peers, keep records of which peers worked, keep
-    ask tracker for new peers periodically
+    asking tracker for new peers periodically
+* profile to see where cpu is going
 
-------the I'm Done line------
+Later todo
+----------
 
-* profile to see where cpu is going - are reactor timeouts too short?
+* write queries for status for UI to use
+* use packages instead of just modules
 * Figure out which peers to get which file pieces from
     (random is reasonable acc. to spec)
+* play with reactor timeouts
 * game theory algorithms - karma
 * change announce params, update more than once
 * Can requests spill across pieces?
@@ -71,4 +72,6 @@ Todo
 * Play with pipelineing for max DL speed
 * writing testing scripts
 * write tests for bittorrent logic - fake messages so no network io
+* use twisted
+* build a query system or other output method for a gui
 * Build a frontend visualization of data - urwid or html+js
