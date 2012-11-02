@@ -259,12 +259,12 @@ class ActiveTorrent(Torrent):
             return False
         suggested_length = 2**14
         if peer:
-            pending_pieces = []
-            available = peer.peer_bitarray & ~self.pending
-            print peer.peer_bitarray
-            print self.pending
-            print available
-            raw_input()
+            #pending_pieces = []
+            #TODO cache this if it helps (or custom data structure that presents both interfaces)
+            #available = sparsebitarray.SparseBitArray(iterable=peer.peer_bitfield) & ~self.pending
+            #print peer.peer_bitfield
+            #print self.pending
+            #print available
             suggested_length = peer.preferred_request_length
         length = self.piece_length
         index = start / self.piece_length

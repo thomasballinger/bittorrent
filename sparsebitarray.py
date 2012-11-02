@@ -22,11 +22,11 @@ class SparseBitArray(object):
     """
     def __init__(self, length=None, iterable=None, scale=None, repetitions=None):
         self.cached_ones = None
-        if (not length and not iterable) or (length and iterable):
+        if (length is None and iterable is None) or (length is not None and iterable is not None):
             raise ValueError("Must initialize with either length or iterable")
-        if length and (scale is not None or repetitions is not None):
+        if length is not None and (scale is not None or repetitions is not None):
             raise ValueError("repate and scale can't be used with length")
-        if length:
+        if length is not None:
             self.length = length
             self.changes = []
         else:

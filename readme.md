@@ -41,7 +41,7 @@ Todo
 
 ---done above this line---
 
-* Try big files
+* Time big files vs other clients
   * endgame ask-many and cancel messages
   * close connections with peers that say they have everything, or aren't
       interested
@@ -61,13 +61,13 @@ Todo
 
 ------the I'm Done line------
 
+* profile to see where cpu is going - are reactor timeouts too short?
 * Figure out which peers to get which file pieces from
     (random is reasonable acc. to spec)
 * game theory algorithms - karma
 * change announce params, update more than once
 * Can requests spill across pieces?
 * profile to see if send operations are blocking (consider sending less data per)
-* profile to see where cpu is going - are reactor timeouts too short?
 * Play with pipelineing for max DL speed
 * writing testing scripts
 * write tests for bittorrent logic - fake messages so no network io
