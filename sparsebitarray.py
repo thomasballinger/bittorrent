@@ -6,6 +6,7 @@ Eliminate need for .normalize() by ensuring self.changes never have duplicates
 binary search to find overlapping segments
 
 """
+import operator
 import bisect
 import collections
 import sys
@@ -60,6 +61,10 @@ def _apply_sparsearraywise(f):
 
     """
     def arraywise_function(self, other):
+        print >> sys.stderr, 'calling arraywise function on', self, 'and', other
+        if not isinstance(other, self.__class__):
+            other = self.__class__(self.length, default=other)
+        print >> sys.stderr, self.changes, other.changes
         self_index = 0
         other_index = 0
         new = self.__class__(self.length)
@@ -100,8 +105,19 @@ class SparseObjectArray(SparseArray):
     SparseObjectArray([frozenset([7]), frozenset([7])])
     >>> SparseObjectArray(2)
     SparseObjectArray([None, None])
-    >>> SparseObjectArray(2, default=0)
+    >>> a = SparseObjectArray(4, default=0); a
+    SparseObjectArray([0, 0, 0, 0])
+    >>> a[1:3]
     SparseObjectArray([0, 0])
+    >>> a[1:3] = 1; a
+    SparseObjectArray([0, 1, 1, 0])
+    >>> a = SparseObjectArray(4, default=0)
+
+    #>>> a[1:3].changes
+    #[0]
+
+    #>>> a[1:3] + 1; a
+    #SparseObjectArray([1, 1])
     """
     def __init__(self, *args, **kwargs):
         super(SparseObjectArray, self).__init__(*args, **kwargs)
@@ -125,7 +141,7 @@ class SparseObjectArray(SparseArray):
         return g(self, other)
 
     union = _apply_sparsearraywise(frozenset.union)
-    __add__ = arraywise
+    __add__ = _apply_sparsearraywise(operator.add)
 
     def __sub__(self, other):
         """For combining two arrays elementwise, not for extending arrays"""
@@ -153,35 +169,54 @@ class SparseObjectArray(SparseArray):
     def __getitem__(self, key):
         """Get a slice or the value of an entry
 
-        >>> s = SparseObjectArray(6, default=0); s.changes = [0, 2, 4]; s.values = [0, 2, 0]; s.runs = {0:{(0, 2), (4, 6)}, 2:{(2, 4)}}
-        >>> s
-        SparseObjectArray([0, 0, 2, 2, 0, 0])
-        >>> s[1:5]
+        >>> s = SparseObjectArray(6, default=0); s[2:4] = 2;
+        >>> s, s.changes, s.values
+        (SparseObjectArray([0, 0, 2, 2, 0, 0]), [0, 2, 4], [0, 2, 0])
+        >>> s[1:5], s[1:5].changes
         SparseObjectArray([0, 2, 2, 0])
-        >>> s[0:5]
-        SparseObjectArray([0, 0, 2, 2, 0])
-        >>> s[1:6]
-        SparseObjectArray([0, 2, 2, 0, 0])
-        >>> s[2:6]
-        SparseObjectArray([2, 2, 0, 0])
-        >>> s = SparseObjectArray(6, default=0); s.changes = [0]; s.values = [0]; s.runs = {0:{(0, 6)}}
-        >>> s
-        SparseObjectArray([0, 0, 0, 0, 0, 0])
+
+        #>>> s[0:5]
+        #SparseObjectArray([0, 0, 2, 2, 0])
+        #>>> s[1:6]
+        #SparseObjectArray([0, 2, 2, 0, 0])
+        #>>> s[2:6]
+        #SparseObjectArray([2, 2, 0, 0])
+        #>>> s = SparseObjectArray(6, default=0); s.changes = [0]; s.values = [0]; s.runs = {0:{(0, 6)}}
+        #>>> s
+        #SparseObjectArray([0, 0, 0, 0, 0, 0])
+        #>>> s = SparseObjectArray(4, default=0)
+        #>>> a = s[1:3]
+        #>>> a.changes
+        #[0]
         """
+        print >> sys.stderr, '-*-*-*-*-'
         if isinstance(key, slice):
             start, end = self._decode_slice(key)
-            start_index = bisect.bisect_left(self.changes, start)
-            end_index = bisect.bisect_left(self.changes, end)
+            print 'start:', start, 'end:', end
+            before_or_at_start = bisect.bisect_right(self.changes, start) - 1
+            before_or_at_end = bisect.bisect_right(self.changes, end) - 1
             result = SparseObjectArray(end - start)
 
-            if self.changes[start_index] - start == 0:
+            if self.changes[before_or_at_start] - start == 0:
+                # then we're staring right on a run, we'll get it in a sec
                 result.changes = []
                 result.values = []
             else:
                 result.changes = [0]
-                result.values = [self.values[start_index - 1]]
-            result.changes.extend([change - start for change in self.changes[start_index:end_index]])
-            result.values.extend(self.values[start_index:end_index])
+                result.values = [self.values[before_or_at_end]]
+
+            #PLACEMARK TOM THOMAS BALLINGER I'M HERE
+            # TODO fix this to use sensible logic, likely parallel with setitem
+            result.changes.extend([change - start for change in self.changes[before_or_at_start+1:end_index]])
+            result.values.extend(self.values[start_index-1:end_index])
+
+            if self.changes[before_or_at_end] == end:
+                pass
+            else:
+                result.changes.append(self.changes[before_or_at_end])
+                result.values.append(self.values[before_or_at_end])
+
+
             result.runs = collections.defaultdict(set)
             temp = result.changes+[end-start]
             for i, value in enumerate(result.values):
