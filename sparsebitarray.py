@@ -61,10 +61,10 @@ def _apply_sparsearraywise(f):
 
     """
     def arraywise_function(self, other):
-        print >> sys.stderr, 'calling arraywise function on', self, 'and', other
+        #print >> sys.stderr, 'calling arraywise function on', self, 'and', other
         if not isinstance(other, self.__class__):
             other = self.__class__(self.length, default=other)
-        print >> sys.stderr, self.changes, other.changes
+        #print >> sys.stderr, self.changes, other.changes
         self_index = 0
         other_index = 0
         new = self.__class__(self.length)
@@ -172,53 +172,47 @@ class SparseObjectArray(SparseArray):
         >>> s = SparseObjectArray(6, default=0); s[2:4] = 2;
         >>> s, s.changes, s.values
         (SparseObjectArray([0, 0, 2, 2, 0, 0]), [0, 2, 4], [0, 2, 0])
-        >>> s[1:5], s[1:5].changes
-        SparseObjectArray([0, 2, 2, 0])
-
-        #>>> s[0:5]
-        #SparseObjectArray([0, 0, 2, 2, 0])
-        #>>> s[1:6]
-        #SparseObjectArray([0, 2, 2, 0, 0])
-        #>>> s[2:6]
-        #SparseObjectArray([2, 2, 0, 0])
-        #>>> s = SparseObjectArray(6, default=0); s.changes = [0]; s.values = [0]; s.runs = {0:{(0, 6)}}
-        #>>> s
-        #SparseObjectArray([0, 0, 0, 0, 0, 0])
-        #>>> s = SparseObjectArray(4, default=0)
-        #>>> a = s[1:3]
-        #>>> a.changes
-        #[0]
+        >>> a = s[1:5]; a, a.changes, a.values, a.runs
+        (SparseObjectArray([0, 2, 2, 0]), [0, 1, 3], [0, 2, 0], defaultdict(<type 'set'>, {0: set([(0, 1), (3, 4)]), 2: set([(1, 3)])}))
+        >>> b = s[2:4]; b, b.changes, b.values
+        (SparseObjectArray([2, 2]), [0], [2])
+        >>> s[0:5]
+        SparseObjectArray([0, 0, 2, 2, 0])
+        >>> s[1:6]
+        SparseObjectArray([0, 2, 2, 0, 0])
+        >>> s[2:6]
+        SparseObjectArray([2, 2, 0, 0])
+        >>> s = SparseObjectArray(6, default=0); s.changes = [0]; s.values = [0]; s.runs = {0:{(0, 6)}}
+        >>> s
+        SparseObjectArray([0, 0, 0, 0, 0, 0])
+        >>> s = SparseObjectArray(4, default=0)
+        >>> a = s[1:3]
+        >>> a.changes
+        [0]
         """
-        print >> sys.stderr, '-*-*-*-*-'
         if isinstance(key, slice):
+            #print >> sys.stderr, '-*-*-*-*-'
             start, end = self._decode_slice(key)
-            print 'start:', start, 'end:', end
             before_or_at_start = bisect.bisect_right(self.changes, start) - 1
             before_or_at_end = bisect.bisect_right(self.changes, end) - 1
             result = SparseObjectArray(end - start)
 
-            if self.changes[before_or_at_start] - start == 0:
-                # then we're staring right on a run, we'll get it in a sec
-                result.changes = []
-                result.values = []
-            else:
-                result.changes = [0]
-                result.values = [self.values[before_or_at_end]]
-
             #PLACEMARK TOM THOMAS BALLINGER I'M HERE
             # TODO fix this to use sensible logic, likely parallel with setitem
-            result.changes.extend([change - start for change in self.changes[before_or_at_start+1:end_index]])
-            result.values.extend(self.values[start_index-1:end_index])
-
+            #print >> sys.stderr, [max(0, change - start) for change in self.changes[before_or_at_start:before_or_at_end]]
+            result.changes = [max(0, change - start) for change in self.changes[before_or_at_start:before_or_at_end]]
+            result.values = self.values[before_or_at_start:before_or_at_end]
             if self.changes[before_or_at_end] == end:
                 pass
-            else:
-                result.changes.append(self.changes[before_or_at_end])
+            elif self.changes[before_or_at_end] < end:
+                result.changes.append(max(0, self.changes[before_or_at_end] - start))
                 result.values.append(self.values[before_or_at_end])
-
+            else:
+                raise Exception('Logic Error')
 
             result.runs = collections.defaultdict(set)
             temp = result.changes+[end-start]
+            #print >> sys.stderr, temp
             for i, value in enumerate(result.values):
                 result.runs[value].add((result.changes[i], temp[i+1]))
 
