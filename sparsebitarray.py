@@ -1,5 +1,4 @@
 """
-        print new.changes
 Sparse (really Frequently Contiguous) Binary Array
 
 TODO:
@@ -8,8 +7,313 @@ binary search to find overlapping segments
 
 """
 import bisect
+import collections
 import sys
-class SparseBitArray(object):
+class SparseArray(object):
+    """Abstract class for code shared between Sparse Arrays"""
+    def __init__(self, length=None, iterable=None, scale=None, repetitions=None, default=None):
+        if (length is None and iterable is None) or (length is not None and iterable is not None):
+            raise ValueError("Must initialize with either length or iterable")
+        if length is not None and (scale is not None or repetitions is not None):
+            raise ValueError("repate and scale can't be used with length")
+        if length is not None:
+            self.length = length
+            self._initialize_structures()
+            if default is not None:
+                self[:] = default
+        else:
+            scale = scale if scale is not None else 1
+            repetitions = repetitions if repetitions is not None else 1
+            if isinstance(iterable, basestring):
+                iterable = [int(x) for x in iterable]
+            else:
+                iterable = list(iterable)
+            self.length = len(iterable)*scale*(repetitions)
+
+            self._initialize_structures()
+
+            start = 0
+            for i in range(repetitions):
+                for x in iterable:
+                    end = start + scale
+                    self[start:end] = x
+                    start += scale
+
+    def __len__(self):
+        return self.length
+
+    def _decode_slice(self, key):
+        start, step, end = key.start, key.step, key.stop
+        if start is None: start = 0
+        if end is None: end = len(self)
+        if end == sys.maxint: end = len(self)
+        if step not in [None, 1]: raise ValueError("Custom steps not allowed: "+repr(key))
+        return start, end
+
+    def _indices(self, start, end):
+        start_index = bisect.bisect_right(self.changes, start)
+        end_index = bisect.bisect_left(self.changes, end)
+        return start_index, end_index
+
+def _apply_sparsearraywise(f):
+    """Creates a function which will combine two arrays elementwise given a function f
+
+    """
+    def arraywise_function(self, other):
+        self_index = 0
+        other_index = 0
+        new = self.__class__(self.length)
+        cur = 0
+        while True:
+            self_num = self.changes[self_index] if self_index < len(self.changes) else len(self)
+            other_num = other.changes[other_index] if other_index < len(other.changes) else len(self)
+            if self_num == other_num == len(self):
+                break
+            if self_num <= other_num:
+                old_cur = cur
+                cur = self_num
+                self_index += 1
+                if self_num == other_num:
+                    continue
+            else:
+                old_cur = cur
+                cur = self_num
+                other_index += 1
+                if cur == old_cur:
+                    continue
+            new[old_cur:cur] = f(self[old_cur], other[old_cur])
+        return new
+    return arraywise_function
+
+class SparseObjectArray(SparseArray):
+    """Sparse Array of Objects, in which data is represented by indices of
+    changes from one value to another
+
+    >>> a = SparseObjectArray(2, default=frozenset([7])); a
+    SparseObjectArray([frozenset([7]), frozenset([7])])
+    >>> b = SparseObjectArray(2, default=frozenset()); b[1:2] = frozenset([1,2,3]);
+    >>> b
+    SparseObjectArray([frozenset([]), frozenset([1, 2, 3])])
+    >>> a.arraywise(frozenset.union, b)
+    SparseObjectArray([frozenset([7]), frozenset([7])])
+    >>> a.union(b)
+    SparseObjectArray([frozenset([7]), frozenset([7])])
+    >>> SparseObjectArray(2)
+    SparseObjectArray([None, None])
+    >>> SparseObjectArray(2, default=0)
+    SparseObjectArray([0, 0])
+    """
+    def __init__(self, *args, **kwargs):
+        super(SparseObjectArray, self).__init__(*args, **kwargs)
+
+    def _initialize_structures(self):
+        self.values = [None]
+        self.changes = [0]
+        self.runs = collections.defaultdict(set)
+        self.runs[None].add((0, self.length))
+
+    def arraywise(self, f, other):
+        """Apply any 2-argument function arraywise.
+
+        >>> a = SparseObjectArray(4, default=2)
+        >>> b = SparseObjectArray(4, default=3)
+        >>> import operator
+        >>> a.arraywise(operator.lt, b)
+        SparseObjectArray([True, True, True, True])
+        """
+        g = _apply_sparsearraywise(f)
+        return g(self, other)
+
+    union = _apply_sparsearraywise(frozenset.union)
+    __add__ = arraywise
+
+    def __sub__(self, other):
+        """For combining two arrays elementwise, not for extending arrays"""
+        raise Exception("not Yet implemented")
+    def all(self):
+        """TODO implement caching, this only does a few falsy things
+        >>> a = SparseObjectArray(4, default=2); a.all()
+        True
+        >>> a[1:2] = 0; a.all()
+        False
+        """
+        return all(self.runs.keys())
+    def none(self):
+        return not any(self.runs.keys())
+    def index(self, value):
+        """Return index of element or raise ValueError if not found
+        >>> a = SparseObjectArray(4, default=2); a.index(2)
+        0
+        """
+        try:
+            return min(x[0] for x in self.runs[value])
+        except IndexError:
+            raise ValueError('%s is not in %s instance' % (value, self.__class__.__name__))
+
+    def __getitem__(self, key):
+        """Get a slice or the value of an entry
+
+        >>> s = SparseObjectArray(6, default=0); s.changes = [0, 2, 4]; s.values = [0, 2, 0]; s.runs = {0:{(0, 2), (4, 6)}, 2:{(2, 4)}}
+        >>> s
+        SparseObjectArray([0, 0, 2, 2, 0, 0])
+        >>> s[1:5]
+        SparseObjectArray([0, 2, 2, 0])
+        >>> s[0:5]
+        SparseObjectArray([0, 0, 2, 2, 0])
+        >>> s[1:6]
+        SparseObjectArray([0, 2, 2, 0, 0])
+        >>> s[2:6]
+        SparseObjectArray([2, 2, 0, 0])
+        >>> s = SparseObjectArray(6, default=0); s.changes = [0]; s.values = [0]; s.runs = {0:{(0, 6)}}
+        >>> s
+        SparseObjectArray([0, 0, 0, 0, 0, 0])
+        """
+        if isinstance(key, slice):
+            start, end = self._decode_slice(key)
+            start_index = bisect.bisect_left(self.changes, start)
+            end_index = bisect.bisect_left(self.changes, end)
+            result = SparseObjectArray(end - start)
+
+            if self.changes[start_index] - start == 0:
+                result.changes = []
+                result.values = []
+            else:
+                result.changes = [0]
+                result.values = [self.values[start_index - 1]]
+            result.changes.extend([change - start for change in self.changes[start_index:end_index]])
+            result.values.extend(self.values[start_index:end_index])
+            result.runs = collections.defaultdict(set)
+            temp = result.changes+[end-start]
+            for i, value in enumerate(result.values):
+                result.runs[value].add((result.changes[i], temp[i+1]))
+
+            return result
+        else:
+            if key >= len(self):
+                raise IndexError(key)
+
+            index_of_value_at_or_before_pos = bisect.bisect_right(self.changes, key) - 1
+            return self.values[index_of_value_at_or_before_pos]
+
+    def __repr__(self):
+        return 'SparseObjectArray('+repr([x for x in self])+')'
+    def __setitem__(self, key, value):
+        """Sets item or slice to an integer
+        changes, values, runs
+        [0], [0], {0:{(0, 100)}}
+        s[5:10] = 2
+        [0,5,10], [0, 2, 0], {0:{(0, 5), (10, 100)}, 2:{(5, 10)}}
+
+        >>> s = SparseObjectArray(6, default=0); s
+        SparseObjectArray([0, 0, 0, 0, 0, 0])
+        >>> s.runs
+        defaultdict(<type 'set'>, {0: set([(0, 6)])})
+        >>> s[4:6] = 7; s.changes, s.values, s
+        ([0, 4], [0, 7], SparseObjectArray([0, 0, 0, 0, 7, 7]))
+        >>> s.runs
+        defaultdict(<type 'set'>, {0: set([(0, 4)]), 7: set([(4, 6)])})
+        >>> s[:1] = 3; s.changes, s.values, s
+        ([0, 1, 4], [3, 0, 7], SparseObjectArray([3, 0, 0, 0, 7, 7]))
+        >>> s.runs
+        defaultdict(<type 'set'>, {0: set([(1, 4)]), 3: set([(0, 1)]), 7: set([(4, 6)])})
+        >>> s[1:2] = 6; s.changes, s.values, s
+        ([0, 1, 2, 4], [3, 6, 0, 7], SparseObjectArray([3, 6, 0, 0, 7, 7]))
+        >>> s.runs
+        defaultdict(<type 'set'>, {0: set([(2, 4)]), 3: set([(0, 1)]), 6: set([(1, 2)]), 7: set([(4, 6)])})
+        >>> s[:] = 0; s.changes, s.values, s
+        ([0], [0], SparseObjectArray([0, 0, 0, 0, 0, 0]))
+        >>> s.runs
+        defaultdict(<type 'set'>, {0: set([(0, 6)])})
+        """
+        #print >> sys.stderr, 'initial changes, values:', self.changes, self.values
+        if isinstance(key, slice):
+            start, end = self._decode_slice(key)
+            before_or_at_start = bisect.bisect_right(self.changes, start) - 1
+            before_or_at_end = bisect.bisect_right(self.changes, end) - 1
+            #print >> sys.stderr, '\n\n\nchanges:', self.changes
+            #print >> sys.stderr, 'values:', self.changes
+            #print >> sys.stderr, 'start, end:', start, end
+            #print >> sys.stderr, 'before_or_at_start_index, before_or_at_end_index:', before_or_at_start, before_or_at_end
+
+            new_changes = self.changes[:before_or_at_start]
+            new_values = self.values[:before_or_at_start]
+
+            before_run = None
+            new_run = [start, end]
+            after_run = None
+
+            if self.values[before_or_at_start] == value:
+                new_changes.append(self.changes[before_or_at_start])
+                new_values.append(self.changes[before_or_at_start])
+                # replace before run, if finish actually extends it
+                new_run[0] = self.changes[before_or_at_start]
+            elif self.changes[before_or_at_start] == start:
+                new_changes.append(start)
+                new_values.append(value)
+                # throw out the before run, then add new one
+            elif self.changes[before_or_at_start] < start:
+                new_changes.append(self.changes[before_or_at_start])
+                new_values.append(self.values[before_or_at_start])
+                new_changes.append(start)
+                new_values.append(value)
+                # shorten before run, then add new one
+                before_run = [self.changes[before_or_at_start], start]
+            else:
+                raise Exception("Logic Error")
+
+            if end == self.length:
+                pass
+                # extend run we're modifying
+            elif self.values[before_or_at_end] == value:
+                # extend run we're modifying through next run and remove after run
+                new_run[1] = self.changes[before_or_at_end]
+            elif self.changes[before_or_at_end] == end:
+                new_changes.append(self.changes[before_or_at_end])
+                new_values.append(self.values[before_or_at_end])
+                # use our run, keep next run
+                if len(self.changes) == before_or_at_end + 1:
+                    after_run = [end, len(self)]
+                else:
+                    after_run = [end, self.changes[before_or_at_end+1]]
+            elif self.changes[before_or_at_end] < end:
+                new_changes.append(end)
+                new_values.append(self.values[before_or_at_end])
+                # add our run, shorten next run
+                if len(self.changes) == before_or_at_end + 1:
+                    after_run = [end, len(self)]
+                else:
+                    after_run = [end, self.changes[before_or_at_end + 1]]
+            else:
+                raise Exception("Logic Error")
+
+            new_changes.extend(self.changes[before_or_at_end+1:])
+            new_values.extend(self.values[before_or_at_end+1:])
+
+            self.changes += [len(self)] # not how it's stored, but it's never accessed again for loop works better
+            #print >> sys.stderr, 'initial runs:', self.runs
+            for i in range(before_or_at_start, before_or_at_end+1):
+                #print >> sys.stderr, 'trying to remove', (self.changes[i], self.changes[i+1]), 'from', self.values[i]
+                self.runs[self.values[i]].remove((self.changes[i], self.changes[i+1]))
+                if self.runs[self.values[i]] == set():
+                    del self.runs[self.values[i]]
+            #print >> sys.stderr, 'runs after removing:', self.runs, 'values', new_values, 'changes', new_changes, 'new run', new_run
+            #print >> sys.stderr, 'before run:', before_run
+            if before_run:
+                self.runs[self.values[before_or_at_start]].add(tuple(before_run))
+            #print >> sys.stderr, 'new run:', new_run
+            self.runs[value].add(tuple(new_run))
+            #print >> sys.stderr, 'after run:', after_run
+            if after_run:
+                self.runs[self.values[before_or_at_end]].add(tuple(after_run))
+            #print >> sys.stderr, 'runs after adding:', self.runs, 'values', new_values, 'changes', new_changes, 'new run', new_run
+
+            self.changes = new_changes
+            self.values = new_values
+
+        else:
+            raise ValueError("Single element assignment not allowed")
+
+class SparseBitArray(SparseArray):
     """Sparse BitArray, in which data is represented by indices of changes
     between runs of set and unset values
 
@@ -20,31 +324,13 @@ class SparseBitArray(object):
     >>> s[:] = True; all(s), any(s)
     (True, True)
     """
-    def __init__(self, length=None, iterable=None, scale=None, repetitions=None):
-        self.cached_ones = None
-        if (length is None and iterable is None) or (length is not None and iterable is not None):
-            raise ValueError("Must initialize with either length or iterable")
-        if length is not None and (scale is not None or repetitions is not None):
-            raise ValueError("repate and scale can't be used with length")
-        if length is not None:
-            self.length = length
-            self.changes = []
-        else:
-            scale = scale if scale is not None else 1
-            repetitions = repetitions if repetitions is not None else 1
-            if isinstance(iterable, basestring):
-                iterable = [int(x) for x in iterable]
-            else:
-                iterable = list(iterable)
-            self.length = len(iterable)*scale*(repetitions)
-            self.changes = []
+    def __init__(self, *args, **kwargs):
+        super(SparseBitArray, self).__init__(*args, **kwargs)
 
-            start = 0
-            for i in range(repetitions):
-                for x in iterable:
-                    end = start + scale
-                    self[start:end] = bool(x)
-                    start += scale
+    def _initialize_structures(self):
+        self.changes = []
+        self.cached_ones = None
+
     def all(self):
         self.normalize()
         return True if self.changes == [0, self.length] else False
@@ -127,24 +413,11 @@ class SparseBitArray(object):
         else:
             return self.length - self.cached_ones
 
-    def __len__(self):
-        return self.length
-
     def __repr__(self):
         s = ''.join(str(int(x)) for x in self)
         return 'SparseBitArray(\'%s\')' % s
 
-    def _decode_slice(self, key):
-        start, step, end = key.start, key.step, key.stop
-        if start is None: start = 0
-        if end is None: end = len(self)
-        if step not in [None, 1]: raise ValueError("Custom steps not allowed: "+repr(key))
-        return start, end
 
-    def _indices(self, start, end):
-        start_index = bisect.bisect_right(self.changes, start)
-        end_index = bisect.bisect_left(self.changes, end)
-        return start_index, end_index
 
     def __getitem__(self, key):
         """Get a slice or the value of an entry
@@ -210,6 +483,7 @@ class SparseBitArray(object):
         SparseBitArray('11111111111111111111')
         """
         self.cached_ones = None
+        value = bool(value)
         if isinstance(key, slice):
             start, end = self._decode_slice(key)
             start_index, end_index = self._indices(start, end)
