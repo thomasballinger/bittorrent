@@ -191,15 +191,11 @@ class SparseObjectArray(SparseArray):
         [0]
         """
         if isinstance(key, slice):
-            #print >> sys.stderr, '-*-*-*-*-'
             start, end = self._decode_slice(key)
             before_or_at_start = bisect.bisect_right(self.changes, start) - 1
             before_or_at_end = bisect.bisect_right(self.changes, end) - 1
             result = SparseObjectArray(end - start)
 
-            #PLACEMARK TOM THOMAS BALLINGER I'M HERE
-            # TODO fix this to use sensible logic, likely parallel with setitem
-            #print >> sys.stderr, [max(0, change - start) for change in self.changes[before_or_at_start:before_or_at_end]]
             result.changes = [max(0, change - start) for change in self.changes[before_or_at_start:before_or_at_end]]
             result.values = self.values[before_or_at_start:before_or_at_end]
             if self.changes[before_or_at_end] == end:
