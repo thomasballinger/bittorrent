@@ -61,10 +61,8 @@ def _apply_sparsearraywise(f):
 
     """
     def arraywise_function(self, other):
-        #print >> sys.stderr, 'calling arraywise function on', self, 'and', other
         if not isinstance(other, self.__class__):
             other = self.__class__(self.length, default=other)
-        #print >> sys.stderr, self.changes, other.changes
         self_index = 0
         other_index = 0
         new = self.__class__(self.length)
@@ -208,7 +206,6 @@ class SparseObjectArray(SparseArray):
 
             result.runs = collections.defaultdict(set)
             temp = result.changes+[end-start]
-            #print >> sys.stderr, temp
             for i, value in enumerate(result.values):
                 result.runs[value].add((result.changes[i], temp[i+1]))
 
@@ -250,15 +247,10 @@ class SparseObjectArray(SparseArray):
         >>> s.runs
         defaultdict(<type 'set'>, {0: set([(0, 6)])})
         """
-        #print >> sys.stderr, 'initial changes, values:', self.changes, self.values
         if isinstance(key, slice):
             start, end = self._decode_slice(key)
             before_or_at_start = bisect.bisect_right(self.changes, start) - 1
             before_or_at_end = bisect.bisect_right(self.changes, end) - 1
-            #print >> sys.stderr, '\n\n\nchanges:', self.changes
-            #print >> sys.stderr, 'values:', self.changes
-            #print >> sys.stderr, 'start, end:', start, end
-            #print >> sys.stderr, 'before_or_at_start_index, before_or_at_end_index:', before_or_at_start, before_or_at_end
 
             new_changes = self.changes[:before_or_at_start]
             new_values = self.values[:before_or_at_start]
@@ -315,22 +307,15 @@ class SparseObjectArray(SparseArray):
             new_values.extend(self.values[before_or_at_end+1:])
 
             self.changes += [len(self)] # not how it's stored, but it's never accessed again for loop works better
-            #print >> sys.stderr, 'initial runs:', self.runs
             for i in range(before_or_at_start, before_or_at_end+1):
-                #print >> sys.stderr, 'trying to remove', (self.changes[i], self.changes[i+1]), 'from', self.values[i]
                 self.runs[self.values[i]].remove((self.changes[i], self.changes[i+1]))
                 if self.runs[self.values[i]] == set():
                     del self.runs[self.values[i]]
-            #print >> sys.stderr, 'runs after removing:', self.runs, 'values', new_values, 'changes', new_changes, 'new run', new_run
-            #print >> sys.stderr, 'before run:', before_run
             if before_run:
                 self.runs[self.values[before_or_at_start]].add(tuple(before_run))
-            #print >> sys.stderr, 'new run:', new_run
             self.runs[value].add(tuple(new_run))
-            #print >> sys.stderr, 'after run:', after_run
             if after_run:
                 self.runs[self.values[before_or_at_end]].add(tuple(after_run))
-            #print >> sys.stderr, 'runs after adding:', self.runs, 'values', new_values, 'changes', new_changes, 'new run', new_run
 
             self.changes = new_changes
             self.values = new_values

@@ -244,6 +244,17 @@ def message(kind, *args):
     prefix = struct.pack('!I', len(message_id) + len(payload))
     return prefix + message_id + payload
 
+def listen_to_messages_and_print(s):
+    buff = ''
+    while True:
+        print 'receiving data'
+        buff += s.recv(1000)
+        while True:
+            m, buff = parse_message(buff)
+            print repr(m)
+            if m == 'incomplete message' or m is None:
+                break
+
 def parse_message(buff):
     r"""If a full message exists in input s, pull it off and return a msg object, along with unparsed portion of the string
 

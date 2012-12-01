@@ -28,7 +28,6 @@ def CLI():
 
     import sys
     #torrentfile = 'test.torrent'
-    #torrentfile = '/Users/tomb/Downloads/How To Speed Up Your BitTorrent Downloads [mininova].torrent'
     #torrentfile = 'soulpurge.torrent'
     torrentfile = 'world.torrent'
     #torrentfile = 'flagfromserver.torrent'
