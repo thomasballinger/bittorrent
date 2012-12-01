@@ -20,7 +20,7 @@ Have(index=1)
 >>> str(Msg(bytestring="\x00\x00\x00\x00")[0])
 '\x00\x00\x00\x00'
 >>> a = Piece(index=1, begin=0, block='asdf'); a, str(a)
-(Piece(index=1, begin=0, begin='asdf'), '\x00\x00\x00\r\x07\x00\x00\x00\x01\x00\x00\x00\x00asdf')
+(Piece(index=1, begin=0, block='asdf'), '\x00\x00\x00\r\x07\x00\x00\x00\x01\x00\x00\x00\x00asdf')
 >>> str(a)
 '\x00\x00\x00\r\x07\x00\x00\x00\x01\x00\x00\x00\x00asdf'
 >>> len(a)
@@ -28,8 +28,15 @@ Have(index=1)
 >>> m = KeepAlive()
 >>> 2*m + m[2:3] + (m + 'a') + ('a' + m) + m*2
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00aa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+>>> Handshake(info_hash='a'*20, peer_id='b'*20)
+Handshake(pstr='BitTorrent protocol', reserved='\x00\x00\x00\x00\x00\x00\x00\x00', info_hash='aaaaaaaaaaaaaaaaaaaa', peer_id='bbbbbbbbbbbbbbbbbbbb')
+>>> Bitfield(bitfield='\x00\x01')
+Bitfield(bitfield='\x00\x01')
+>>> Bitfield('\x00\x01')
+Bitfield(bitfield='\x00\x01')
 """
 
+import re
 import struct
 from collections import OrderedDict
 
@@ -43,7 +50,7 @@ message_info = {
         'Have' :          {'msg_id' : 4,
             'protocol_args' : ['index']},
         'Bitfield' :      {'msg_id' : 5,
-            'protocol_args' : ['bitfield']},
+            'protocol_extended' : 'bitfield'},
         'Request' :       {'msg_id' : 6,
             'protocol_args' : [ 'index', 'begin', 'length' ]},
         'Piece' :         {'msg_id' : 7,
@@ -119,7 +126,7 @@ class Msg(str):
             args.append('%s=%d' % (arg_name, struct.unpack('!I', payload[:4])[0]))
             payload = payload[4:]
         if self.protocol_extended:
-            args.append('%s=%s' % (arg_name, repr(payload)))
+            args.append('%s=%s' % (self.protocol_extended, repr(payload)))
         return '%s(%s)' % (self.__class__.__name__, ', '.join(args))
 
     def __getattr__(self, att):
@@ -133,27 +140,48 @@ class Msg(str):
         except ValueError:
             return AttributeError('object has no attribute \'%s\'' % att)
 
+    def kind(self):
+        """return class name, but converted from CamelCase to camel_case"""
+        # copied from http://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-camel-case
+        # because I was lazy
+        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', self.__class__)
+        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+#TODO This class is terrible - mixed levels of abstraction, repeated information, just awful
 class Handshake(Msg):
     positions = OrderedDict((
         ('l'         , slice(0, 1)),
-        ('protocol'  , slice(1, 20)),
+        ('pstr'      , slice(1, 20)),
         ('reserved'  , slice(20, 28)),
         ('info_hash' , slice(28, 48)),
         ('peer_id'   , slice(48, 68)),
         ))
-    def __new__(cls, **kwargs):
+    def __new__(cls, pstr='BitTorrent protocol', reserved='\x00\x00\x00\x00\x00\x00\x00\x00', info_hash=None, peer_id=None, **kwargs):
         if 'bytestring' in kwargs:
             bytestring = kwargs['bytestring']
             if not len(bytestring) >= 49+19 and bytestring[1:20] == 'BitTorrent protocol':
                 raise ValueError()
-            values = [kwargs['bytestring'][slice_] for att, slice_ in cls.positions.iteritems()[1:]]
+            values = {att : kwargs['bytestring'][slice_] for att, slice_ in cls.positions.iteritems()[1:]}
             return Handshake(values), kwargs[bytestring[68:]]
+        kwargs['pstr'] = pstr
+        kwargs['reserved'] = reserved
+        kwargs['info_hash'] = info_hash
+        kwargs['peer_id'] = peer_id
+        if set(kwargs) - set(cls.positions.keys()[1:]):
+            raise ValueError('Extra Arguments to Handshake init:' + repr(kwargs))
+        (s,) = struct.pack('!B', len(kwargs['pstr']))
+        assert len(s) == 1
+        for att, slice_ in list(cls.positions.iteritems())[1:]:
+            if len(kwargs[att]) != slice_.stop - slice_.start:
+                raise ValueError('argument wrong length ')
+            s += kwargs[att]
+        return str.__new__(Handshake, s)
 
     def __init__(pstr='BitTorrent protocol', reserved='\x00\x00\x00\x00\x00\x00\x00\x00', info_hash=None, peer_id=None):
         pass
 
     def __repr__(self):
-        signature = 'pstr=%s, reserved=%s, info_hash=%s, peer_id=%s' % (self[1:20], self[20:28], self[28:48], self[48:68])
+        signature = 'pstr=%r, reserved=%r, info_hash=%r, peer_id=%r' % (self[1:20], self[20:28], self[28:48], self[48:68])
         return '%s(%s)' % (self.__class__.__name__, signature)
 
     def __getattr__(self, att):
@@ -171,10 +199,10 @@ def parse_messages(buff):
     messages = []
     while True:
         m, buff = Msg(buff)
-        if not (m and buff):
+        if not m:
             break
         messages.append(m)
-    return messages
+    return messages, buff
 
 message_classes = {}
 for msg in message_info:
@@ -195,14 +223,28 @@ for msg in message_info:
     last_arg = klass.protocol_extended
     signature = ', '.join(['self'] +
             ['%s=0' % x for x in
-                args + ([last_arg] if last_arg else [])])
+                args + ([last_arg] if last_arg else [])] +
+            ['**kwargs'])
     __init__ = None # we're about to redefine it
     code = "def __init__({signature}): pass".format(signature=signature)
     exec(code)
     class_dict['__init__'] = __init__
+
+    # A custom __new__ allows keyword args to be passed positionally
+    args_for_new = ', '.join(['self'] +
+            ['%s=%s' % (x, x) for x in
+                args + ([last_arg] if last_arg else [])] +
+            ['**kwargs'])
+    __new__ = None
+    code = """def __new__({signature}):
+        return Msg.__new__({args_for_new})""".format(signature=signature, args_for_new=args_for_new)
+    exec(code)
+    class_dict['__new__'] = __new__
+
     # end dynamic __init__ hack
     ##############################################
 
+    klass = type(msg, (Msg,), class_dict)
     message_classes[msg] = klass
 
 locals().update(message_classes)

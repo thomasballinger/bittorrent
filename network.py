@@ -84,7 +84,7 @@ class MsgConnection(object):
             return
         now = time.time()
         if now - self.last_sent_data > KEEP_ALIVE_TIME / 2:
-            self.send_msg(msg.keep_alive())
+            self.send_msg(msg.KeepAlive())
         self.reactor.start_timer(KEEP_ALIVE_TIME / 2, self)
 
     def write_event(self):
@@ -94,7 +94,7 @@ class MsgConnection(object):
             self.has_received_data = True
         while self.messages_to_send:
             self.last_sent_data = time.time()
-            self.write_buffer += str(self.messages_to_send.pop(0))
+            self.write_buffer += self.messages_to_send.pop(0)
             logging.debug('what we\'re going to write: %d bytes: %s', len(self.write_buffer), repr(self.write_buffer))
         if self.write_buffer:
             sent = self.s.send(self.write_buffer)
@@ -119,7 +119,7 @@ class MsgConnection(object):
         self.last_received_data = time.time()
         buff = self.read_buffer + s
         logging.info('%s received %d bytes', self, len(buff))
-        messages, self.read_buffer = msg.messages_and_rest(buff)
+        messages, self.read_buffer = msg.parse_messages(buff)
         logging.debug('received messages: %s', repr(messages))
         logging.debug('with leftover bytes: %s', repr(self.read_buffer))
         for m in messages:

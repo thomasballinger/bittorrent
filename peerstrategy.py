@@ -3,7 +3,7 @@ import msg
 def keep_asking_strategy(peer):
     if not peer.interested:
         logging.info('%s sending interested', peer)
-        peer.send_msg(msg.interested())
+        peer.send_msg(msg.Interested())
         peer.interested = True
 
     if not peer.choked:
