@@ -111,10 +111,10 @@ class Peer(object):
             t = now - t_sent
             if t > REQUEST_MSG_TIMEOUT:
                 #print 'canceling message which has been outstanding for over a minute:',
-                logging.info('outstanding request: request(%d, %d, %d) is %d seconds old', m.index, m.begin, m.length, time.time() - t_sent)
-                #self.send_msg(msg.Cancel(m.index, m.begin, m.length))
+                logging.info('outstanding request: request(%d, %d, %d) is %d seconds old', m.index_, m.begin, m.length, time.time() - t_sent)
+                #self.send_msg(msg.Cancel(m.index_, m.begin, m.length))
                 #self.torrent.return_outstanding_request(m)
-                #del self.outstanding_requests[msg.Request(m.index, m.begin, m.length)]
+                #del self.outstanding_requests[msg.Request(m.index_, m.begin, m.length)]
 
     def return_outstanding_requests(self):
         for m, t_sent in self.outstanding_requests.iteritems():
@@ -131,7 +131,7 @@ class Peer(object):
 
         big state machine-y thing
         """
-        logging.info('processing message: %s', repr(m))
+        logging.info('processing message: %r', m)
         if m.kind == 'handshake':
             if self.handshake:
                 raise Exception('Received second handshake')
@@ -161,14 +161,14 @@ class Peer(object):
         elif m.kind == 'not_interested':
             self.peer_interested = False
         elif m.kind == 'have':
-            self.peer_bitfield[m.index] = 1
+            self.peer_bitfield[m.index_] = 1
         elif m.kind == 'request':
             if self.torrent is None:
                 raise Exception(repr(self)+' can\'t process request when no torrent associated yet')
             if self.peer_interested:
-                data = self.torrent.get_data_if_have(m.index, m.begin, m.length)
+                data = self.torrent.get_data_if_have(m.index_, m.begin, m.length)
                 if data:
-                    m = msg.Piece(m.index, m.begin, data)
+                    m = msg.Piece(m.index_, m.begin, data)
                     logging.info('sending %s to %s', repr(m), self)
                     self.send_msg(m)
                 else:
@@ -177,12 +177,12 @@ class Peer(object):
                 logging.warning('peer requesting piece despite not sending interested, so not sending it')
         elif m.kind == 'piece':
             try:
-                del self.outstanding_requests[msg.Request(m.index, m.begin, len(m.block))]
+                del self.outstanding_requests[msg.Request(m.index_, m.begin, len(m.block))]
             except KeyError:
                 logging.warning('got a request back that we had canceled - oh well!')
-            self.torrent.add_data(m.index, m.begin, m.block)
+            self.torrent.add_data(m.index_, m.begin, m.block)
         else:
-            logging.warning('didn\'t correctly process', repr(m))
+            logging.warning('didn\'t correctly process: %r', m)
             raise Exception('missed a message: ')
         self.run_strategy()
         return m

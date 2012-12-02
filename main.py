@@ -27,9 +27,10 @@ def CLI():
     logging.info('starting logging')
 
     import sys
-    #torrentfile = 'test.torrent'
+    torrentfile = 'test.torrent'
+    #torrentfile = '../../Dropbox/Public/ebook.torrent'
     #torrentfile = 'soulpurge.torrent'
-    torrentfile = 'world.torrent'
+    #torrentfile = 'world.torrent'
     #torrentfile = 'flagfromserver.torrent'
     datafile = 'flag.jpg'
     if len(sys.argv) > 1 and sys.argv[1] == 'seed':

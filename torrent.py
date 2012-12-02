@@ -273,7 +273,7 @@ class ActiveTorrent(Torrent):
         # and cut the last piece short if necessary
         length = min(suggested_length, self.piece_length - begin, self.length - start)
         self.pending[start:(start+length)] = 2**length - 1
-        return msg.request(index=index, begin=begin, length=length)
+        return msg.Request(index=index, begin=begin, length=length)
 
     def return_outstanding_request(self, m):
         logging.info('returning %s', repr(m))
