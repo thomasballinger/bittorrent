@@ -27,15 +27,18 @@ def CLI():
     logging.info('starting logging')
 
     import sys
-    torrentfile = 'test.torrent'
+    #torrentfile = 'test.torrent'
     #torrentfile = '../../Dropbox/Public/ebook.torrent'
     #torrentfile = 'soulpurge.torrent'
     #torrentfile = 'world.torrent'
-    #torrentfile = 'flagfromserver.torrent'
+    torrentfile = 'flagfromserver.torrent'
     datafile = 'flag.jpg'
     if len(sys.argv) > 1 and sys.argv[1] == 'seed':
+        if len(sys.argv) > 2:
+            torrentfile = sys.argv[2]
         seed(torrentfile, datafile)
     else:
+        torrentfile = sys.argv[1]
         leech(torrentfile)
 
 if __name__ == '__main__':
