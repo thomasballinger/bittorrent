@@ -94,8 +94,10 @@ class MsgConnection(object):
             self.has_received_data = True
         while self.messages_to_send:
             self.last_sent_data = time.time()
-            self.write_buffer += self.messages_to_send.pop(0)
-            logging.debug('what we\'re going to write: %d bytes: %s', len(self.write_buffer), repr(self.write_buffer))
+            m = self.messages_to_send.pop(0)
+            logging.info('%s scheduling send of message %s', repr(self.object), repr(m))
+            self.write_buffer += m
+            logging.debug('which translates to %d bytes: %s', len(self.write_buffer), repr(self.write_buffer))
         if self.write_buffer:
             sent = self.s.send(self.write_buffer)
             logging.info('%s sent %d bytes', self, sent)
@@ -116,6 +118,7 @@ class MsgConnection(object):
             logging.info('%s dieing because received read event but nothing to read on socket', repr(self))
             self.object.die() # since reading nothing from a socket means closed
             return
+        logging.debug('received data: %s', repr(s))
         self.last_received_data = time.time()
         buff = self.read_buffer + s
         logging.info('%s received %d bytes', self, len(buff))
@@ -123,4 +126,5 @@ class MsgConnection(object):
         logging.debug('received messages: %s', repr(messages))
         logging.debug('with leftover bytes: %s', repr(self.read_buffer))
         for m in messages:
+            logging.info('%s received message: %s', repr(self.object), repr(m))
             self.object.recv_msg(m)

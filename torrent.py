@@ -122,8 +122,9 @@ class ActiveTorrent(Torrent):
         addr = self.announce_url
         full_url = addr + '?' + urllib.urlencode(announce_query_params)
         logging.info('%s making request to %s', repr(self), full_url)
-        response_data = bencode.bdecode(urllib.urlopen(full_url).read())
-        logging.info('response returned')
+        response = urllib.urlopen(full_url).read()
+        logging.info('response returned: %s', repr(response))
+        response_data = bencode.bdecode(response)
 
         self.last_tracker_update = time.time()
         self.tracker_min_interval = response_data.get('min interval', None)

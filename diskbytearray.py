@@ -53,7 +53,7 @@ class MultiFileDiskArray(DiskArray):
             raise ValueError('bytes to be written do not match section size')
         logging.info('%s write start: %d, length: %d', repr(self), start, length)
         start_file_index = bisect.bisect_right(self.starts, start) - 1
-        logging.info('start file index: %d', start_file_index)
+        logging.debug('start file index: %d', start_file_index)
         written = 0
         for file_index in range(start_file_index, len(self.files)):
             file_location = self.starts[file_index]

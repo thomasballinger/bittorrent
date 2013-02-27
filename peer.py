@@ -131,7 +131,8 @@ class Peer(object):
 
         big state machine-y thing
         """
-        logging.info('processing message: %r', m)
+        logging.info('processing %r message', type(m))
+        logging.debug('processing message: %r', m)
         if m.kind == 'handshake':
             if self.handshake:
                 raise Exception('Received second handshake')

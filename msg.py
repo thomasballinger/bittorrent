@@ -126,7 +126,10 @@ class Msg(str):
             args.append('%s=%d' % (arg_name, struct.unpack('!I', payload[:4])[0]))
             payload = payload[4:]
         if self.protocol_extended:
-            args.append('%s=%s' % (self.protocol_extended, repr(payload)))
+            if self.protocol_extended == 'block':
+                args.append('%s=%s' % (self.protocol_extended, repr(payload[:30])+('...' if len(payload) > 30 else '')))
+            else:
+                args.append('%s=%s' % (self.protocol_extended, repr(payload)))
         return '%s(%s)' % (self.__class__.__name__, ', '.join(args))
 
     def __getattr__(self, att):

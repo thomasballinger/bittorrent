@@ -23,23 +23,29 @@ def loop(client):
             return
 
 def CLI():
-    logging.basicConfig(filename='bt.log', level=logging.INFO)
+
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('torrent', help='torrent file to download or seed')
+    parser.add_argument('-s', '--seed', help='start in seeding mode', metavar='LOAD_DATA', default=False)
+    parser.add_argument('-l', '--message-log', action='store_true',
+            help='log everything; among other things, log all messages sent and received')
+    parser.add_argument('-v', '--verbose', action='count', default=0,
+            help='print messages to stderr in addition to bt.log. Add v\'s for more verbosity')
+    args = parser.parse_args()
+
+    logging.basicConfig(filename='bt.log', level=logging.DEBUG if args.message_log else logging.INFO)
     logging.info('starting logging')
 
-    import sys
-    #torrentfile = 'test.torrent'
-    #torrentfile = '../../Dropbox/Public/ebook.torrent'
-    #torrentfile = 'soulpurge.torrent'
-    #torrentfile = 'world.torrent'
-    torrentfile = 'flagfromserver.torrent'
-    datafile = 'flag.jpg'
-    if len(sys.argv) > 1 and sys.argv[1] == 'seed':
-        if len(sys.argv) > 2:
-            torrentfile = sys.argv[2]
-        seed(torrentfile, datafile)
+    if args.verbose:
+        console = logging.StreamHandler()
+        console.setLevel(getattr(logging, ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'][args.verbose-1]))
+        logging.getLogger('').addHandler(console)
+
+    if args.seed:
+        seed(args.torrent, args.seed)
     else:
-        torrentfile = sys.argv[1]
-        leech(torrentfile)
+        leech(args.torrent)
 
 if __name__ == '__main__':
     CLI()
