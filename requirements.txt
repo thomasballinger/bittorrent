@@ -1,0 +1,3 @@
+bencode==1.0
+bitstring==3.0.2
+requests==0.14.1
