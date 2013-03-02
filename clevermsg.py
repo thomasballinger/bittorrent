@@ -4,7 +4,7 @@ https://github.com/jschneier/bittorrent/blob/master/message.py
 and
 https://github.com/kristenwidman/Bittorrenter/blob/master/messages.py
 
->>> import msg
+>>> import clevermsg as msg
 >>> a = msg.Have(index=1); a
 Have(index=1)
 >>> a = msg.Have(index=1); a
@@ -42,6 +42,28 @@ import re
 import struct
 from collections import OrderedDict
 
+message_info = {
+        'KeepAlive' :  {'msg_id' : None},
+        'Choke' :         {'msg_id' : 0,
+            '__doc__' : "Notification that receiver is being choked"},
+        'Unchoke' :       {'msg_id' : 1},
+        'Interested' :    {'msg_id' : 2},
+        'NotInterested' : {'msg_id' : 3},
+        'Have' :          {'msg_id' : 4,
+            'protocol_args' : ['index']},
+        'Bitfield' :      {'msg_id' : 5,
+            'protocol_extended' : 'bitfield'},
+        'Request' :       {'msg_id' : 6,
+            'protocol_args' : [ 'index', 'begin', 'length' ]},
+        'Piece' :         {'msg_id' : 7,
+            'protocol_args' : ['index', 'begin'],
+            'protocol_extended' : 'block'},
+        'Cancel' :        {'msg_id' : 8,
+            'protocol_args' : ['index', 'begin', 'length']},
+        'Port' :          {'msg_id' : 9,
+            'protocol_extended' : 'listen_port'}
+        }
+
 class Msg(str):
     """Implements behavior for all messages but Handshake
         when subclassed, provide class attributes for:
@@ -63,7 +85,7 @@ class Msg(str):
             if len(buff) < msg_length + 4:
                 return None, buff
             msg_id = ord(buff[4]) if len(buff) > 4 else None
-            (actual_cls,) = [msg_cls for msg_cls in message_classes if msg_cls.msg_id == msg_id]
+            (actual_cls,) = [msg_cls for msg_cls in message_classes.values() if msg_cls.msg_id == msg_id]
             if cls is Msg:
                 return actual_cls.__new__(actual_cls, **kwargs)
             else:
@@ -204,87 +226,50 @@ def parse_messages(buff):
         messages.append(m)
     return messages, buff
 
-message_info = {
-        'KeepAlive' :  {'msg_id' : None},
-        'Choke' :         {'msg_id' : 0,
-            '__doc__' : "Notification that receiver is being choked"},
-        'Unchoke' :       {'msg_id' : 1},
-        'Interested' :    {'msg_id' : 2},
-        'NotInterested' : {'msg_id' : 3},
-        'Have' :          {'msg_id' : 4,
-            'protocol_args' : ['index']},
-        'Bitfield' :      {'msg_id' : 5,
-            'protocol_extended' : 'bitfield'},
-        'Request' :       {'msg_id' : 6,
-            'protocol_args' : [ 'index', 'begin', 'length' ]},
-        'Piece' :         {'msg_id' : 7,
-            'protocol_args' : ['index', 'begin'],
-            'protocol_extended' : 'block'},
-        'Cancel' :        {'msg_id' : 8,
-            'protocol_args' : ['index', 'begin', 'length']},
-        'Port' :          {'msg_id' : 9,
-            'protocol_extended' : 'listen_port'}
-        }
-class KeepAlive(Msg):
-    msg_id = None
-    def __init__(self): pass
-    def __new__(cls, **kwargs): return Msg.__new__(cls, **kwargs)
+message_classes = {}
+for msg in message_info:
+    class_dict = {}
+    for att in ['msg_id', 'protocol_args', 'protocol_extended']:
+        if att in message_info[msg]:
+            class_dict[att] = message_info[msg][att]
+    klass = type(msg, (Msg,), class_dict)
 
-class Choke(Msg):
-    "Notification that receiver is being choked"
-    msg_id = 0
-    def __init__(self, **kwargs): pass
-    def __new__(cls, **kwargs): return Msg.__new__(cls, **kwargs)
-class Unchoke(Msg):
-    msg_id = 1
-    def __init__(self, **kwargs): pass
-    def __new__(cls, **kwargs): return Msg.__new__(cls, **kwargs)
-class Interested(Msg):
-    msg_id = 2
-    def __init__(self, **kwargs): pass
-    def __new__(cls, **kwargs): return Msg.__new__(cls, **kwargs)
-class NotInterested(Msg):
-    "Notification that receiver is being choked"
-    msg_id = 3
-    def __init__(self, **kwargs): pass
-    def __new__(cls, **kwargs): return Msg.__new__(cls, **kwargs)
-class Have(Msg):
-    msg_id = 4
-    protocol_args = ['index']
-    def __init__(self, index=0, **kwargs): pass
-    def __new__(cls, index=0, **kwargs):
-        return Msg.__new__(cls, index=index, **kwargs)
-class Bitfield(Msg):
-    msg_id = 5
-    protocol_extended = 'bitfield'
-    def __init__(self, bitfield=0, **kwargs): pass
-    def __new__(cls, bitfield=0, **kwargs):
-        return Msg.__new__(cls, bitfield=bitfield, **kwargs)
-class Request(Msg):
-    protocol_args = ['index', 'begin', 'length']
-    msg_id = 6
-    def __init__(self, index=0, begin=0, length=0, **kwargs): pass
-    def __new__(cls, index=0, begin=0, length=0, **kwargs):
-        return Msg.__new__(cls, index=index, begin=begin, length=length, **kwargs)
-class Piece(Msg):
-    msg_id = 7
-    protocol_args = ['index', 'begin']
-    protocol_extended = 'block'
-    def __init__(self, index=0, begin=0, block=0, **kwargs): pass
-    def __new__(cls, index=0, begin=0, block=0, **kwargs):
-        return Msg.__new__(cls, index=index, begin=begin, block=block, **kwargs)
-class Cancel(Msg):
-    msg_id = 8
-    def __init__(self, index=0, begin=0, length=0, **kwargs): pass
-    def __new__(cls, index=0, begin=0, length=0, **kwargs):
-        return Msg.__new__(cls, index=index, begin=begin, length=length, **kwargs)
-class Port(Msg):
-    msg_id = 6
-    def __init__(self, index=0, **kwargs): pass
-    def __new__(cls, index=0, **kwargs):
-        return Msg.__new__(cls, index=index, **kwargs)
+    ###############################################
+    # Creating an init signature for each message
+    #
+    # This is an api, so class initializer signatures are important!
+    # But Python <3.3 has no way to dynamically create signatures besides eval!
+    # see http://stackoverflow.com/questions/1409295/set-function-signature-in-python
+    # ipython and bpython both use the init method for suggesting arguments
+    args = klass.protocol_args
+    last_arg = klass.protocol_extended
+    signature = ', '.join(['self'] +
+            ['%s=0' % x for x in
+                args + ([last_arg] if last_arg else [])] +
+            ['**kwargs'])
+    __init__ = None # we're about to redefine it
+    code = "def __init__({signature}): pass".format(signature=signature)
+    exec(code)
+    class_dict['__init__'] = __init__
 
-message_classes = [KeepAlive, Choke, Unchoke, Interested, NotInterested, Have, Bitfield, Request, Piece, Cancel, Port]
+    # A custom __new__ allows keyword args to be passed positionally
+    args_for_new = ', '.join(['self'] +
+            ['%s=%s' % (x, x) for x in
+                args + ([last_arg] if last_arg else [])] +
+            ['**kwargs'])
+    __new__ = None
+    code = """def __new__({signature}):
+        return Msg.__new__({args_for_new})""".format(signature=signature, args_for_new=args_for_new)
+    exec(code)
+    class_dict['__new__'] = __new__
+
+    # end dynamic __init__ hack
+    ##############################################
+
+    klass = type(msg, (Msg,), class_dict)
+    message_classes[msg] = klass
+
+locals().update(message_classes)
 
 def test():
     import doctest
