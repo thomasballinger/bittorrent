@@ -28,6 +28,7 @@ def bdecode(s):
     True
     """
 #TODO makes this tons more elegant - all in terms of reduce?
+#TODO make this a validating library - more assertions and input checking
     if not hasattr(s, 'next'):
         s = (c for c in s)
 
