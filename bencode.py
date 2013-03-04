@@ -68,17 +68,12 @@ def bdecode(s):
                 return l
             l.append(decode(c))
 
+    decoders = {'d': parse_dict, 'l': parse_list, 'i': parse_int}
+    for numeral in '0123456789':
+        decoders[numeral] = parse_str
+
     def decode(c):
-        if c in '0123456789':
-            return parse_str(c)
-        elif c == 'd':
-            return parse_dict(c)
-        elif c == 'l':
-            return parse_list(c)
-        elif c == 'i':
-            return parse_int(c)
-        else:
-            raise ValueError('bad bencode string')
+        return decoders[c](c)
 
     return decode(s.next())
 
