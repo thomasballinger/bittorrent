@@ -99,9 +99,8 @@ class ActiveTorrent(Torrent):
         self.strategy = lambda x: False
         self.client.reactor.start_timer(1, self)
 
-    def tracker_update(self):
-        """Returns data from Tracker specified in torrent"""
-
+    @property
+    def announce_query_params(self):
         announce_query_params = {
             'info_hash' : self.info_hash,
             'peer_id' : self.client.client_id,
@@ -115,14 +114,18 @@ class ActiveTorrent(Torrent):
             #'numwant' : 50 # optional
             #'trackerid' : tracker id, if included before # optional
         }
-
         if not self.last_tracker_update:
             announce_query_params['event'] = 'started'
+        return announce_query_params
 
-        addr = self.announce_url
-        full_url = addr + '?' + urllib.urlencode(announce_query_params)
-        logging.info('%s making request to %s', repr(self), full_url)
-        response = urllib.urlopen(full_url).read()
+    @property
+    def full_announce_url(self):
+        return self.announce_url + '?' + urllib.urlencode(self.announce_query_params)
+
+    def tracker_update(self):
+        """Returns data from Tracker specified in torrent"""
+        logging.info('%s making request to %s', repr(self), self.full_url)
+        response = urllib.urlopen(self.full_url).read()
         logging.info('response returned: %s', repr(response))
         response_data = bencode.bdecode(response)
 
