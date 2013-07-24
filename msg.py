@@ -57,13 +57,13 @@ class Msg(str):
             buff = kwargs['bytestring']
             if len(buff) < 4:
                 return None, buff
-            (msg_length,) = struct.unpack('!I', buff[0:4])
             if len(buff) >= 68 and buff[:11] == '\x13BitTorrent':
                 return Handshake(bytestring=buff)
+            (msg_length,) = struct.unpack('!I', buff[0:4])
             if len(buff) < msg_length + 4:
                 return None, buff
             msg_id = ord(buff[4]) if len(buff) > 4 else None
-            (actual_cls,) = [msg_cls for msg_cls in message_classes if msg_cls.msg_id == msg_id]
+            actual_cls = (msg_cls for msg_cls in message_classes if msg_cls.msg_id == msg_id).next()
             if cls is Msg:
                 return actual_cls.__new__(actual_cls, **kwargs)
             else:
@@ -204,32 +204,10 @@ def parse_messages(buff):
         messages.append(m)
     return messages, buff
 
-message_info = {
-        'KeepAlive' :  {'msg_id' : None},
-        'Choke' :         {'msg_id' : 0,
-            '__doc__' : "Notification that receiver is being choked"},
-        'Unchoke' :       {'msg_id' : 1},
-        'Interested' :    {'msg_id' : 2},
-        'NotInterested' : {'msg_id' : 3},
-        'Have' :          {'msg_id' : 4,
-            'protocol_args' : ['index']},
-        'Bitfield' :      {'msg_id' : 5,
-            'protocol_extended' : 'bitfield'},
-        'Request' :       {'msg_id' : 6,
-            'protocol_args' : [ 'index', 'begin', 'length' ]},
-        'Piece' :         {'msg_id' : 7,
-            'protocol_args' : ['index', 'begin'],
-            'protocol_extended' : 'block'},
-        'Cancel' :        {'msg_id' : 8,
-            'protocol_args' : ['index', 'begin', 'length']},
-        'Port' :          {'msg_id' : 9,
-            'protocol_extended' : 'listen_port'}
-        }
 class KeepAlive(Msg):
     msg_id = None
     def __init__(self): pass
     def __new__(cls, **kwargs): return Msg.__new__(cls, **kwargs)
-
 class Choke(Msg):
     "Notification that receiver is being choked"
     msg_id = 0
