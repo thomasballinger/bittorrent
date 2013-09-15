@@ -124,8 +124,8 @@ class ActiveTorrent(Torrent):
 
     def tracker_update(self):
         """Returns data from Tracker specified in torrent"""
-        logging.info('%s making request to %s', repr(self), self.full_url)
-        response = urllib.urlopen(self.full_url).read()
+        logging.info('%s making request to %s', repr(self), self.full_announce_url)
+        response = urllib.urlopen(self.full_announce_url).read()
         logging.info('response returned: %s', repr(response))
         response_data = bencode.bdecode(response)
 

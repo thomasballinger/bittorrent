@@ -75,6 +75,7 @@ class Msg(str):
             raise Exception("Bad init values")
 
     @classmethod
+#TODO do we ever use this? why?
     def __new_from_buffer(cls, byte_buffer):
         if len(byte_buffer) < 4:
             return None, byte_buffer

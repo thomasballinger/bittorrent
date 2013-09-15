@@ -257,7 +257,8 @@ for msg in message_info:
             ['%s=%s' % (x, x) for x in
                 args + ([last_arg] if last_arg else [])] +
             ['**kwargs'])
-    __new__ = None
+
+    __new__ = None # we're about to redefine it
     code = """def __new__({signature}):
         return Msg.__new__({args_for_new})""".format(signature=signature, args_for_new=args_for_new)
     exec(code)
