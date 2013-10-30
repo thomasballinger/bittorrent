@@ -18,12 +18,12 @@ import weakref
 import shutil
 
 import bitstring
-import sparsebitarray
 
-from diskbytearray import MultiFileDiskArray
+from . import sparsebitarray
+from . import msg
 
-import msg
-from peer import Peer
+from .diskbytearray import MultiFileDiskArray
+from .peer import Peer
 
 class Torrent(object):
     """Torrent file data

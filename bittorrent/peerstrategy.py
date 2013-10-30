@@ -1,5 +1,5 @@
 import logging
-import msg
+from . import msg
 def keep_asking_strategy(peer):
     if not peer.interested:
         logging.info('%s sending interested', peer)

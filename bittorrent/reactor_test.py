@@ -1,5 +1,5 @@
-import reactor_kq
-import reactor_select
+from . import reactor_kq
+from . import reactor_select
 
 class FileReaderWriter(object):
     def __init__(self, reactor):

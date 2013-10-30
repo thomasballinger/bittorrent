@@ -1,7 +1,7 @@
-import msg
-import socket
+from . import  msg
+from . import socket
 
-from torrent import Torrent
+from .torrent import Torrent
 
 t = Torrent('flagfromserver.torrent')
 print t.info_hash

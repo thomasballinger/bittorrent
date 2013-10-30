@@ -1,7 +1,7 @@
 import time
 import logging
 
-import peerstrategy
+from . import peerstrategy
 
 
 class connect_and_ask_n_peers(object):

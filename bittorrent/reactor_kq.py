@@ -15,7 +15,7 @@ Unregister read or write if you don't want the notification to happen again
 
 import select
 
-import kq
+from . import kq
 
 class Reactor(object):
     def __init__(self):

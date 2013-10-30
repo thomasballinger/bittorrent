@@ -4,7 +4,7 @@ https://github.com/jschneier/bittorrent/blob/master/message.py
 and
 https://github.com/kristenwidman/Bittorrenter/blob/master/messages.py
 
->>> import msg
+>>> from bittorrent import msg
 >>> a = msg.Have(index=1); a
 Have(index=1)
 >>> a = msg.Have(index=1); a

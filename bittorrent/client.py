@@ -1,10 +1,10 @@
 import time
 import logging
 import weakref
-from torrent import ActiveTorrent
-from reactor_select import Reactor
-from peer import Peer
-from network import AcceptingConnection
+from .torrent import ActiveTorrent
+from .reactor_select import Reactor
+from .peer import Peer
+from .network import AcceptingConnection
 
 class BittorrentClient(object):
     """

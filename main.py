@@ -1,7 +1,7 @@
 import logging
 
-from client import BittorrentClient
-import torrentstrategy
+from bittorrent.client import BittorrentClient
+from bittorrent import torrentstrategy
 
 def leech(torrentfilename):
     client = BittorrentClient()
