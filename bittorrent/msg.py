@@ -121,7 +121,7 @@ class Msg(str):
             (value,) = struct.unpack('!I', self[(5+i*4):(5+(i+1)*4)])
             return value
         except ValueError:
-            return AttributeError('object has no attribute \'%s\'' % att)
+            raise AttributeError('object has no attribute \'%s\'' % att)
 
     @property
     def kind(self):
@@ -169,8 +169,12 @@ class Handshake(Msg):
     def __init__(self, pstr='BitTorrent protocol', reserved='\x00\x00\x00\x00\x00\x00\x00\x00', info_hash=None, peer_id=None):
         pass
 
+    @property
+    def peer_id(self):
+        return self[48:68]
+
     def __repr__(self):
-        signature = 'pstr=%r, reserved=%r, info_hash=%r, peer_id=%r' % (self[1:20], self[20:28], self[28:48], self[48:68])
+        signature = 'pstr=%r, reserved=%r, info_hash=%r, peer_id=%r' % (self[1:20], self[20:28], self[28:48], self.peer_id)
         return '%s(%s)' % (self.__class__.__name__, signature)
 
     def __getattr__(self, att):

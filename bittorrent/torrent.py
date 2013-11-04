@@ -43,12 +43,12 @@ class Torrent(object):
     class ParsingException(Exception): pass
 
     def initialize_from_torrent_file(self):
-        torrent_dict = bencode.bdecode(open(self.filename).read())
+        self._torrent_dict = torrent_dict = bencode.bdecode(open(self.filename).read())
         self.creation_date = datetime.datetime.fromtimestamp(torrent_dict['creation date'])
         self.announce_url = torrent_dict['announce']
         self.created_by = torrent_dict.get('created by', None)
         self.encoding = torrent_dict.get('encoding', None)
-        info_dict = torrent_dict['info']
+        self._info_dict = info_dict = torrent_dict['info']
         self.info_hash = sha.new(bencode.bencode(info_dict)).digest()
         self.piece_length = info_dict['piece length']
         self.piece_hashes = [info_dict['pieces'][i:i+20] for i in range(0, len(info_dict['pieces']), 20)]
