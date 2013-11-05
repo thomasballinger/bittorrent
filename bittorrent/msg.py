@@ -156,6 +156,8 @@ class Handshake(Msg):
         kwargs['reserved'] = reserved
         kwargs['info_hash'] = info_hash
         kwargs['peer_id'] = peer_id
+        if info_hash is None or peer_id is None:
+            raise ValueError("Handshake requires info_hash and peer_id")
         if set(kwargs) - set(cls.positions.keys()[1:]):
             raise ValueError('Extra Arguments to Handshake init:' + repr(kwargs))
         (s,) = struct.pack('!B', len(kwargs['pstr']))
@@ -169,10 +171,6 @@ class Handshake(Msg):
     def __init__(self, pstr='BitTorrent protocol', reserved='\x00\x00\x00\x00\x00\x00\x00\x00', info_hash=None, peer_id=None):
         pass
 
-    @property
-    def peer_id(self):
-        return self[48:68]
-
     def __repr__(self):
         signature = 'pstr=%r, reserved=%r, info_hash=%r, peer_id=%r' % (self[1:20], self[20:28], self[28:48], self.peer_id)
         return '%s(%s)' % (self.__class__.__name__, signature)
@@ -180,11 +178,8 @@ class Handshake(Msg):
     def __getattr__(self, att):
         if att.endswith('_') and len(att) > 1:
             att = att[:-1]
-        if self.protocol_extended == att:
-            return self[5+len(self.protocol_args)*4:]
         try:
-            i = self.protocol_args.index(att)
-            return struct.unpack('!I', self[5+i*4:5+(i+1)*4])[0]
+            return self[self.positions[att]]
         except ValueError:
             return AttributeError('object has no attribute \'%s\'' % att)
 

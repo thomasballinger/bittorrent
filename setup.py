@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='bittorrent',
-      version='0.0.1',
+      version='0.0.2',
       description='bittorrent client',
       url='https://github.com/thomasballinger/bittorrent',
       author='Thomas Ballinger',
