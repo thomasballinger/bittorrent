@@ -150,6 +150,8 @@ class SparseObjectArray(SparseArray):
         True
         >>> a[1:2] = 0; a.all()
         False
+        >>> a[2:4].all()
+        True
         """
         return all(self.runs.keys())
     def none(self):
@@ -342,8 +344,18 @@ class SparseBitArray(SparseArray):
         self.cached_ones = None
 
     def all(self):
+        """
+        >>> s = SparseBitArray(20)
+        >>> s.all()
+        False
+        >>> s[:] = True
+        >>> s.all()
+        True
+        >>> s[3:10].all()
+        True
+        """
         self.normalize()
-        return True if self.changes == [0, self.length] else False
+        return True if self.changes == [0] else False
     def none(self):
         self.normalize()
         return True if self.changes == [] else False
@@ -355,18 +367,25 @@ class SparseBitArray(SparseArray):
         >>> s.normalize()
         >>> s.changes
         []
+        >>> s.changes = [0]; s.normalize(); s.changes
+        [0]
+        >>> s.changes = [0, len(s)]; s.normalize(); s.changes
+        [0]
         """
-        if len(set(self.changes)) == len(self.changes):
+        if len(set(self.changes)) == len(self.changes) and len(self) not in self.changes:
             return
         i = 0
         while True:
             if i >= len(self.changes) - 1:
                 break
+            assert 0 <= self.changes[i] <= len(self)
             if self.changes[i] == self.changes[i+1]:
                 del self.changes[i]
                 del self.changes[i]
             else:
                 i += 1
+        while self.changes and self.changes[-1] == len(self):
+            del self.changes[-1]
 
     def index(self, x):
         """Return index of element or raise ValueError if not found

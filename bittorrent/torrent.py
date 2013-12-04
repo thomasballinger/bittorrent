@@ -231,7 +231,7 @@ class ActiveTorrent(Torrent):
         sys.stdout.write('file now %02.2f percent done\r' % self.percent())
         sys.stdout.flush()
         #TODO check piece hash on the piece we might have finished
-        # peer.torrent.check_piece_hashes()
+        #self.check_piece_hashes()
         # this version checks every piece for being done, which is unnecessary
 
     def get_data_if_have(self, index, begin, length):

@@ -179,7 +179,7 @@ class Peer(object):
             try:
                 del self.outstanding_requests[msg.Request(m.index_, m.begin, len(m.block))]
             except KeyError:
-                logging.warning('got a request back that we had canceled - oh well!')
+                logging.warning('got a request back that we had cannot find (canceled?) - oh well!')
             self.torrent.add_data(m.index_, m.begin, m.block)
         else:
             logging.warning('didn\'t correctly process: %r', m)

@@ -134,9 +134,9 @@ class Msg(str):
 #TODO This class is terrible - mixed levels of abstraction, repeated information, just awful
 class Handshake(Msg):
     r"""
-    >>> data = '\x13BitTorrent protocol\x00\x00\x00\x00\x00\x10\x00\x05\xef\\\xce\x17v\xb19\x14.F\xb5\x1dE\xe7\xedN\x84\xbc\xdam-DE1220-lgEiZoSZxQ!g'
+    >>> data = '\x13BitTorrent protocol\x00\x00\x00\x00\x00\x10\x00\x05\xef\\\xce\x17v\xb19\x14.F\xb5\x1dE\xe7\xedN\x84\xbc\xdam-DE1220-lgEiZoSZxQ!ga'
     >>> Handshake(bytestring=data)
-    (Handshake(pstr='BitTorrent protocol', reserved='\x00\x00\x00\x00\x00\x10\x00\x05', info_hash='\xef\\\xce\x17v\xb19\x14.F\xb5\x1dE\xe7\xedN\x84\xbc\xdam', peer_id='-DE1220-lgEiZoSZxQ!g'), '')
+    (Handshake(pstr='BitTorrent protocol', reserved='\x00\x00\x00\x00\x00\x10\x00\x05', info_hash='\xef\\\xce\x17v\xb19\x14.F\xb5\x1dE\xe7\xedN\x84\xbc\xdam', peer_id='-DE1220-lgEiZoSZxQ!g'), 'a')
     """
     positions = OrderedDict((
         ('l'         , slice(0, 1)),

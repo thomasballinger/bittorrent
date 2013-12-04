@@ -6,7 +6,7 @@ from bittorrent import torrentstrategy
 def leech(torrentfilename):
     client = BittorrentClient()
     torrent = client.add_torrent(torrentfilename)
-    torrent.strategy = torrentstrategy.connect_and_ask_n_peers(15)
+    torrent.strategy = torrentstrategy.quit_when_done(15)
     loop(client)
 
 def seed(torrentfile, datafile):
