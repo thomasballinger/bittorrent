@@ -182,7 +182,7 @@ class ActiveTorrent(Torrent):
                 sys.stdout.write('hashing piece %d/%d                 \r' % (i+1, len(self.piece_hashes)))
                 sys.stdout.flush()
                 for peer in self.peers:
-                    peer.send_msg(msg.have(i))
+                    peer.send_msg(msg.Have(i))
                 return True
             else:
                 logging.warning('%s hash check failed! throwing out piece %d', repr(self), i)
@@ -231,7 +231,9 @@ class ActiveTorrent(Torrent):
         sys.stdout.write('file now %02.2f percent done\r' % self.percent())
         sys.stdout.flush()
         #TODO check piece hash on the piece we might have finished
-        #self.check_piece_hashes()
+        pieces_hashed = self.check_piece_hashes()
+        if hasattr(self.strategy, 'die_on_finish') and pieces_hashed == len(self.piece_hashes):
+            sys.exit()
         # this version checks every piece for being done, which is unnecessary
 
     def get_data_if_have(self, index, begin, length):

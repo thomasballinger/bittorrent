@@ -39,11 +39,8 @@ class connect_and_ask_n_peers(object):
 class quit_when_done(connect_and_ask_n_peers):
     def __call__(self, torrent):
         pieces_hashed = torrent.check_piece_hashes()
-        print '---'
-        print pieces_hashed
-        print len(torrent.piece_hashes)
-        print '---'
         if pieces_hashed == len(torrent.piece_hashes):
             sys.exit(0)
         connect_and_ask_n_peers.__call__(self, torrent)
+    die_on_finish = True
 
