@@ -122,7 +122,8 @@ class Peer(object):
     def run_strategy(self):
         logging.info('%s running strategy %s', self, self.strategy.__name__)
         if self.dead:
-            raise Exception('run_strategy was called for ', self, 'despite being dead already')
+            #raise Exception('run_strategy was called for ', self, 'despite being dead already')
+            pass
         self.strategy(self)
 
     def recv_msg(self, m):

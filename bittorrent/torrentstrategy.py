@@ -29,7 +29,7 @@ class connect_and_ask_n_peers(object):
                 return
             else:
                 while len(torrent.peers) < self.max_simul_peers and self.addr_index < len(addresses):
-                    addr = torrent.tracker_peer_addresses[self.addr_index]
+                    addr = addresses[self.addr_index]
                     logging.info('creating peer for %s', repr(addr))
                     peer = torrent.add_peer(*addr)
                     peer.strategy = peerstrategy.keep_asking_strategy
